@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\PelatihController;
+use App\Http\Controllers\Siswa\DashboardController as SiswaDashboardController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\AuthController;
@@ -94,12 +95,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/pelatih/input-nilai-harian', [PelatihController::class, 'storeNilaiHarian'])->name('pelatih.nilai-harian.store');
 
     Route::get('/pelatih/input-nilai-ujian', [PelatihController::class, 'inputNilaiUjian'])->name('pelatih.input-nilai-ujian');
+    Route::post('/pelatih/input-nilai-ujian', [PelatihController::class, 'storeNilaiUjian'])->name('pelatih.nilai-ujian.store');
 
     Route::get('/pelatih/evaluasi-kenaikan-tingkat', [PelatihController::class, 'evaluasiKenaikanTingkat'])->name('pelatih.evaluasi-kenaikan-tingkat');
+    Route::post('/pelatih/evaluasi-kenaikan-tingkat', [PelatihController::class, 'storeEvaluasiKenaikanTingkat'])->name('pelatih.evaluasi-kenaikan-tingkat.store');
+    Route::post('/pelatih/evaluasi-kenaikan-tingkat/tetapkan', [PelatihController::class, 'tetapkanEvaluasiKenaikanTingkat'])->name('pelatih.evaluasi-kenaikan-tingkat.tetapkan');
 
-    Route::get('/siswa/dashboard', function () {
-        return view('dashboard_siswa');
-    })->name('siswa.dashboard');
+    Route::get('/siswa/dashboard', [SiswaDashboardController::class, 'index'])->name('siswa.dashboard');
+    Route::get('/siswa/profil', [SiswaDashboardController::class, 'profil'])->name('siswa.profil');
+    Route::get('/siswa/evaluasi', [SiswaDashboardController::class, 'evaluasi'])->name('siswa.evaluasi');
+    Route::get('/siswa/riwayat', [SiswaDashboardController::class, 'riwayat'])->name('siswa.riwayat');
 
     Route::get('/profil', [UserController::class, 'profil'])->name('profil');
     Route::post('/profil/password', [UserController::class, 'updatePassword'])->name('profil.password');

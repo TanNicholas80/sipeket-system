@@ -39,6 +39,8 @@
                                     <th>Nama Tingkat</th>
                                     <th>Jenis Penilaian</th>
                                     <th>KKM</th>
+                                    <th>Tidak Lulus (&le;)</th>
+                                    <th>Pertimbangan</th>
                                     <th>Urutan</th>
                                     <th>Aksi</th>
                                 </tr>
@@ -53,15 +55,17 @@
                                         </span>
                                     </td>
                                     <td>{{ $tingkat->kkm }}</td>
+                                    <td>{{ $tingkat->ambang_tidak_lulus }}</td>
+                                    <td>{{ $tingkat->ambang_pertimbangan_min }} – {{ $tingkat->ambang_pertimbangan_max }}</td>
                                     <td>{{ $tingkat->urutan }}</td>
                                     <td>
-                                        <a href="{{ route('admin.tingkat.edit', $tingkat) }}" class="btn btn-warning btn-sm">
+                                        <a href="{{ route('admin.tingkat.edit', $tingkat) }}" class="btn btn-warning btn-sm" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <form action="{{ route('admin.tingkat.destroy', $tingkat) }}" method="POST" class="d-inline">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Apakah Anda yakin ingin menghapus tingkat ini?')">
+                                            <button type="submit" class="btn btn-danger btn-sm" title="Hapus" onclick="return confirm('Hapus tingkat \'{{ $tingkat->nama_tingkat }}\'?\n\nAmbang: tidak lulus ≤ {{ $tingkat->ambang_tidak_lulus }}, pertimbangan {{ $tingkat->ambang_pertimbangan_min }}–{{ $tingkat->ambang_pertimbangan_max }}, KKM {{ $tingkat->kkm }}.')">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </form>

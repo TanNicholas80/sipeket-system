@@ -5,14 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class RekapNilaiHarian extends Model
+class NilaiUjianMateri extends Model
 {
     use HasFactory;
 
-    public const STATUS_BELUM_LENGKAP = 'Belum Lengkap';
-    public const STATUS_SIAP_EVALUASI = 'Siap Evaluasi';
-
-    protected $table = 'rekap_nilai_harian';
+    protected $table = 'nilai_ujian_materi';
 
     protected $fillable = [
         'user_id',
@@ -20,16 +17,15 @@ class RekapNilaiHarian extends Model
         'pelatih_id',
         'tingkat_id',
         'tahun_periode',
-        'average',
-        'status',
-        'materi_count',
-        'filled_count',
-        'evaluasi_selesai',
+        'materi_latihan',
+        'nilai_fix',
+        'penguji_terisi',
+        'tanggal_ujian',
     ];
 
     protected $casts = [
-        'average' => 'decimal:2',
-        'evaluasi_selesai' => 'boolean',
+        'tanggal_ujian' => 'date',
+        'nilai_fix' => 'decimal:2',
     ];
 
     public function user()
@@ -42,18 +38,13 @@ class RekapNilaiHarian extends Model
         return $this->belongsTo(Siswa::class);
     }
 
-    public function tingkat()
-    {
-        return $this->belongsTo(Tingkat::class);
-    }
-
     public function pelatih()
     {
         return $this->belongsTo(Pelatih::class);
     }
 
-    public function evaluasiTingkat()
+    public function tingkat()
     {
-        return $this->hasOne(EvaluasiTingkat::class);
+        return $this->belongsTo(Tingkat::class);
     }
 }

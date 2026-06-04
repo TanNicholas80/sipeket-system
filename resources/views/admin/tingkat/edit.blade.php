@@ -57,11 +57,54 @@
                             <div class="form-group">
                                 <label for="kkm">KKM (Kriteria Ketuntasan Minimal)</label>
                                 <input type="number" class="form-control @error('kkm') is-invalid @enderror" id="kkm" name="kkm" value="{{ old('kkm', $tingkat->kkm) }}" min="0" max="100" placeholder="Masukkan KKM" required>
+                                <small class="form-text text-muted">Nilai &ge; KKM dianggap lulus.</small>
                                 @error('kkm')
                                 <span class="invalid-feedback" role="alert">
                                     <strong>{{ $message }}</strong>
                                 </span>
                                 @enderror
+                            </div>
+                            <div class="card card-outline card-secondary mb-3">
+                                <div class="card-header">
+                                    <h3 class="card-title mb-0">Ambang Penilaian</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group">
+                                        <label for="ambang_tidak_lulus">Ambang Tidak Lulus</label>
+                                        <input type="number" class="form-control @error('ambang_tidak_lulus') is-invalid @enderror" id="ambang_tidak_lulus" name="ambang_tidak_lulus" value="{{ old('ambang_tidak_lulus', $tingkat->ambang_tidak_lulus) }}" min="0" max="100" required>
+                                        <small class="form-text text-muted">Nilai &le; ambang ini dianggap tidak lulus.</small>
+                                        @error('ambang_tidak_lulus')
+                                        <span class="invalid-feedback" role="alert">
+                                            <strong>{{ $message }}</strong>
+                                        </span>
+                                        @enderror
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label for="ambang_pertimbangan_min">Rentang Pertimbangan (Bawah)</label>
+                                                <input type="number" class="form-control @error('ambang_pertimbangan_min') is-invalid @enderror" id="ambang_pertimbangan_min" name="ambang_pertimbangan_min" value="{{ old('ambang_pertimbangan_min', $tingkat->ambang_pertimbangan_min) }}" min="0" max="100" required>
+                                                @error('ambang_pertimbangan_min')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group mb-0">
+                                                <label for="ambang_pertimbangan_max">Rentang Pertimbangan (Atas)</label>
+                                                <input type="number" class="form-control @error('ambang_pertimbangan_max') is-invalid @enderror" id="ambang_pertimbangan_max" name="ambang_pertimbangan_max" value="{{ old('ambang_pertimbangan_max', $tingkat->ambang_pertimbangan_max) }}" min="0" max="100" required>
+                                                @error('ambang_pertimbangan_max')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <small class="form-text text-muted">Nilai antara batas bawah dan atas (inklusif) masuk kategori pertimbangan.</small>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label for="urutan">Urutan</label>

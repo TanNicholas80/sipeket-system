@@ -2,18 +2,33 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EvaluasiTingkat;
 use App\Models\MateriLatihan;
 use App\Models\NilaiHarian;
+use App\Models\NilaiUjianMateri;
+use App\Models\NilaiUjianPenguji;
 use App\Models\Pendaftaran;
 use App\Models\RekapNilaiHarian;
+use App\Models\RekapNilaiUjian;
 use App\Models\Tingkat;
 use App\Models\TahunPeriode;
 use App\Models\User;
+use App\Services\EvaluasiKenaikanTingkatService;
+use App\Services\RekapNilaiHarianService;
+use App\Services\RekapNilaiUjianService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class PelatihController extends Controller
 {
+    public function __construct(
+        protected RekapNilaiHarianService $rekapService,
+        protected RekapNilaiUjianService $rekapUjianService,
+        protected EvaluasiKenaikanTingkatService $evaluasiKenaikanService
+    ) {}
+
     public function dashboard()
     {
         $totalSiswaAktif = User::where('role', 'siswa')->where('status', 'aktif')->count();
@@ -62,11 +77,18 @@ class PelatihController extends Controller
         $tahun_periode_id = $request->query('tahun_periode_id');
         $materi_latihan_id = $request->query('materi_latihan_id');
 
-        $tingkats = Tingkat::all();
+        $tingkats = Tingkat::where('jenis_penilaian', 'harian')->orderBy('urutan')->get();
+
+        if ($tingkat_id && !$tingkats->contains('id', (int) $tingkat_id)) {
+            $tingkat_id = null;
+            $materi_latihan_id = null;
+        }
+
         $tahunPeriodes = TahunPeriode::orderByDesc('is_default')->orderBy('periode')->get();
+        $canSelectMateri = !empty($tingkat_id) && !empty($tahun_periode_id);
         $materiLatihans = collect();
 
-        if ($tingkat_id) {
+        if ($canSelectMateri) {
             $materiLatihans = MateriLatihan::where('tingkat_id', $tingkat_id)
                 ->orderBy('nama')
                 ->get();
@@ -95,48 +117,26 @@ class PelatihController extends Controller
         }
 
         if ($showRekap) {
+            $materiMaster = $this->rekapService->getMateriMasterForTingkat((int) $tingkat_id);
+            $materiColumns = $materiMaster->pluck('nama');
+
             $nilaiHarians = NilaiHarian::with('user')
                 ->whereIn('user_id', $siswas->pluck('id'))
                 ->where('tingkat_id', $tingkat_id)
                 ->where('tahun_periode', $selectedTahunPeriode->periode)
+                ->when($materiColumns->isNotEmpty(), fn ($q) => $q->whereIn('materi_latihan', $materiColumns))
                 ->get();
 
-            $materiColumns = $nilaiHarians->pluck('materi_latihan')->unique()->sort()->values();
-
-            $rekapNilai = $siswas->map(function ($siswa) use ($nilaiHarians, $materiColumns) {
-                $nilaiPerMateri = [];
-
-                foreach ($materiColumns as $materi) {
-                    $nilai = $nilaiHarians->first(function ($record) use ($siswa, $materi) {
-                        return $record->user_id === $siswa->id && $record->materi_latihan === $materi;
-                    });
-
-                    $nilaiPerMateri[$materi] = $nilai ? round((($nilai->wiraga ?? 0) + ($nilai->wirasa ?? 0) + ($nilai->wirama ?? 0)) / 3, 1) : null;
-                }
-
-                $availableNilai = array_filter($nilaiPerMateri, function ($value) {
-                    return !is_null($value);
-                });
-
-                $average = count($availableNilai) > 0 ? round(array_sum($availableNilai) / count($availableNilai), 1) : null;
-                $status = 'Belum Lengkap';
-
-                if (count($availableNilai) === count($materiColumns) && count($materiColumns) > 0) {
-                    $status = $average >= 75 ? 'Siap Evaluasi' : 'Belum Siap Evaluasi';
-                }
-
-                return [
-                    'siswa' => $siswa,
-                    'nilaiPerMateri' => $nilaiPerMateri,
-                    'average' => $average,
-                    'status' => $status,
-                ];
-            });
+            $rekapNilai = $siswas->map(
+                fn ($siswa) => $this->rekapService->buildPreviewRow($siswa, $materiMaster, $nilaiHarians)
+            );
         }
 
         return view('pelatih.input-nilai-harian', compact(
             'tingkats',
             'tingkat_id',
+            'tahun_periode_id',
+            'canSelectMateri',
             'selectedTahunPeriodeId',
             'selectedMateriLatihanId',
             'tahunPeriodes',
@@ -156,12 +156,28 @@ class PelatihController extends Controller
     public function storeNilaiHarian(Request $request)
     {
         $validated = $request->validate([
-            'tingkat_id' => 'required|exists:tingkat,id',
+            'tingkat_id' => [
+                'required',
+                Rule::exists('tingkat', 'id')->where(fn ($query) => $query->where('jenis_penilaian', 'harian')),
+            ],
             'tahun_periode_id' => 'required|exists:tahun_periode,id',
             'materi_latihan_id' => 'required|exists:materi_latihan,id',
             'wiraga' => 'required|array',
             'wirasa' => 'required|array',
             'wirama' => 'required|array',
+            'wiraga.*' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            'wirasa.*' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            'wirama.*' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+        ], [
+            'wiraga.*.min' => 'Nilai wiraga minimal 0.',
+            'wiraga.*.max' => 'Nilai wiraga maksimal 100.',
+            'wirasa.*.min' => 'Nilai wirasa minimal 0.',
+            'wirasa.*.max' => 'Nilai wirasa maksimal 100.',
+            'wirama.*.min' => 'Nilai wirama minimal 0.',
+            'wirama.*.max' => 'Nilai wirama maksimal 100.',
+            'wiraga.*.decimal' => 'Nilai wiraga maksimal 2 angka di belakang koma.',
+            'wirasa.*.decimal' => 'Nilai wirasa maksimal 2 angka di belakang koma.',
+            'wirama.*.decimal' => 'Nilai wirama maksimal 2 angka di belakang koma.',
         ]);
 
         $tingkat_id = $validated['tingkat_id'];
@@ -182,9 +198,9 @@ class PelatihController extends Controller
                 continue;
             }
 
-            $wiragaValue = floatval($nilai);
-            $wirasaValue = floatval($wirasa[$user_id] ?? 0);
-            $wiramaValue = floatval($wirama[$user_id] ?? 0);
+            $wiragaValue = $this->normalizePenilaianScore($nilai);
+            $wirasaValue = $this->normalizePenilaianScore($wirasa[$user_id] ?? 0);
+            $wiramaValue = $this->normalizePenilaianScore($wirama[$user_id] ?? 0);
             $averageValue = round(($wiragaValue + $wirasaValue + $wiramaValue) / 3, 2);
 
             NilaiHarian::updateOrCreate(
@@ -208,54 +224,12 @@ class PelatihController extends Controller
             );
         }
 
-        $nilaiHarians = NilaiHarian::where('tingkat_id', $tingkat_id)
-            ->where('tahun_periode', $tahunPeriode->periode)
-            ->whereIn('user_id', array_keys($wiraga))
-            ->get();
-
-        $materiColumns = $nilaiHarians->pluck('materi_latihan')->unique()->values();
-
-        foreach ($nilaiHarians->groupBy('user_id') as $user_id => $records) {
-            $siswa = User::with('siswaProfile')->find($user_id);
-            if (!$siswa || !$siswa->siswaProfile) {
-                continue;
-            }
-
-            $nilaiPerMateri = [];
-            foreach ($materiColumns as $materi) {
-                $record = $records->firstWhere('materi_latihan', $materi);
-                $nilaiPerMateri[$materi] = $record ? round((($record->wiraga ?? 0) + ($record->wirasa ?? 0) + ($record->wirama ?? 0)) / 3, 1) : null;
-            }
-
-            $filledCount = count(array_filter($nilaiPerMateri, function ($value) {
-                return !is_null($value);
-            }));
-            $materiCount = $materiColumns->count();
-            $average = $filledCount > 0 ? round(array_sum(array_filter($nilaiPerMateri, function ($value) {
-                return !is_null($value);
-            })) / $filledCount, 1) : null;
-            $status = 'Belum Lengkap';
-
-            if ($filledCount === $materiCount && $materiCount > 0) {
-                $status = $average >= 75 ? 'Siap Evaluasi' : 'Belum Siap Evaluasi';
-            }
-
-            RekapNilaiHarian::updateOrCreate(
-                [
-                    'user_id' => $user_id,
-                    'tingkat_id' => $tingkat_id,
-                    'tahun_periode' => $tahunPeriode->periode,
-                ],
-                [
-                    'siswa_id' => $siswa->siswaProfile->id,
-                    'pelatih_id' => $pelatih_id,
-                    'average' => $average,
-                    'status' => $status,
-                    'materi_count' => $materiCount,
-                    'filled_count' => $filledCount,
-                ]
-            );
-        }
+        $this->rekapService->syncRekapForTingkatUsers(
+            array_keys($wiraga),
+            (int) $tingkat_id,
+            $tahunPeriode->periode,
+            $pelatih_id
+        );
 
         return redirect()->route('pelatih.input-nilai-harian', [
             'tingkat_id' => $tingkat_id,
@@ -264,14 +238,487 @@ class PelatihController extends Controller
         ])->with('success', 'Nilai harian berhasil disimpan.');
     }
 
-    public function inputNilaiUjian()
+    public function inputNilaiUjian(Request $request)
     {
-        return view('pelatih.input-nilai-ujian');
+        $tingkat_id = $request->query('tingkat_id');
+        $tahun_periode_id = $request->query('tahun_periode_id');
+        $materi_latihan_id = $request->query('materi_latihan_id');
+        $user_id = $request->query('user_id');
+
+        $tingkats = Tingkat::where('jenis_penilaian', 'ujian')->orderBy('urutan')->get();
+
+        if ($tingkat_id && !$tingkats->contains('id', (int) $tingkat_id)) {
+            $tingkat_id = null;
+            $materi_latihan_id = null;
+            $user_id = null;
+        }
+
+        $tahunPeriodes = TahunPeriode::orderByDesc('is_default')->orderBy('periode')->get();
+        $canSelectMateri = !empty($tingkat_id) && !empty($tahun_periode_id);
+        $materiLatihans = collect();
+
+        if ($canSelectMateri) {
+            $materiLatihans = MateriLatihan::where('tingkat_id', $tingkat_id)
+                ->orderBy('nama')
+                ->get();
+        }
+
+        $selectedTahunPeriode = $tahun_periode_id ? TahunPeriode::find($tahun_periode_id) : null;
+        $selectedMateriLatihan = $materi_latihan_id ? MateriLatihan::find($materi_latihan_id) : null;
+        $isApplied = !empty($tingkat_id) && !empty($tahun_periode_id) && !empty($materi_latihan_id)
+            && !empty($user_id) && $selectedTahunPeriode && $selectedMateriLatihan;
+        $showRekap = !empty($tingkat_id) && $selectedTahunPeriode;
+
+        $siswas = collect();
+        $pengujiScores = [];
+        $rekapNilai = collect();
+        $materiColumns = collect();
+        $selectedUser = null;
+
+        if ($canSelectMateri) {
+            $siswas = User::where('role', 'siswa')
+                ->with(['siswaProfile.tingkat'])
+                ->whereHas('siswaProfile', function ($q) use ($tingkat_id) {
+                    $q->where('tingkat_id', $tingkat_id);
+                })
+                ->orderBy('name')
+                ->get();
+        }
+
+        if ($isApplied) {
+            $selectedUser = User::with('siswaProfile')->find($user_id);
+            if ($selectedUser && $selectedUser->siswaProfile) {
+                $pengujiScores = $this->rekapUjianService->getPengujiScoresForForm(
+                    $selectedUser->siswaProfile->id,
+                    (int) $tingkat_id,
+                    $selectedTahunPeriode->periode,
+                    $selectedMateriLatihan->nama
+                );
+            }
+        }
+
+        if ($showRekap) {
+            $materiMaster = $this->rekapUjianService->getMateriMasterForTingkat((int) $tingkat_id);
+            $materiColumns = $materiMaster->pluck('nama');
+
+            $siswaList = User::where('role', 'siswa')
+                ->with(['siswaProfile.tingkat'])
+                ->whereHas('siswaProfile', function ($q) use ($tingkat_id) {
+                    $q->where('tingkat_id', $tingkat_id);
+                })
+                ->get();
+
+            $nilaiMateri = NilaiUjianMateri::where('tingkat_id', $tingkat_id)
+                ->where('tahun_periode', $selectedTahunPeriode->periode)
+                ->whereIn('user_id', $siswaList->pluck('id'))
+                ->when($materiColumns->isNotEmpty(), fn ($q) => $q->whereIn('materi_latihan', $materiColumns))
+                ->get();
+
+            $rekapNilai = $siswaList->map(
+                fn ($siswa) => $this->rekapUjianService->buildPreviewRow($siswa, $materiMaster, $nilaiMateri)
+            );
+        }
+
+        return view('pelatih.input-nilai-ujian', compact(
+            'tingkats',
+            'tingkat_id',
+            'tahun_periode_id',
+            'materi_latihan_id',
+            'user_id',
+            'canSelectMateri',
+            'tahunPeriodes',
+            'materiLatihans',
+            'selectedTahunPeriode',
+            'selectedMateriLatihan',
+            'isApplied',
+            'showRekap',
+            'siswas',
+            'pengujiScores',
+            'rekapNilai',
+            'materiColumns',
+            'selectedUser'
+        ));
     }
 
-    public function evaluasiKenaikanTingkat()
+    public function storeNilaiUjian(Request $request)
     {
-        return view('pelatih.evaluasi-kenaikan-tingkat');
+        $validated = $request->validate([
+            'tingkat_id' => [
+                'required',
+                Rule::exists('tingkat', 'id')->where(fn ($query) => $query->where('jenis_penilaian', 'ujian')),
+            ],
+            'tahun_periode_id' => 'required|exists:tahun_periode,id',
+            'materi_latihan_id' => 'required|exists:materi_latihan,id',
+            'user_id' => 'required|exists:users,id',
+            'penguji' => 'required|array',
+            'penguji.1' => 'required|array',
+            'penguji.2' => 'required|array',
+            'penguji.3' => 'required|array',
+            'penguji.*.wiraga' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            'penguji.*.wirama' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+            'penguji.*.wirasa' => ['required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
+        ], [
+            'penguji.*.wiraga.max' => 'Nilai wiraga maksimal 100.',
+            'penguji.*.wirama.max' => 'Nilai wirama maksimal 100.',
+            'penguji.*.wirasa.max' => 'Nilai wirasa maksimal 100.',
+            'penguji.*.wiraga.decimal' => 'Nilai wiraga maksimal 2 angka di belakang koma.',
+            'penguji.*.wirama.decimal' => 'Nilai wirama maksimal 2 angka di belakang koma.',
+            'penguji.*.wirasa.decimal' => 'Nilai wirasa maksimal 2 angka di belakang koma.',
+        ]);
+
+        $pelatih_id = Auth::user()->pelatihProfile?->id;
+        if (!$pelatih_id) {
+            abort(403, 'Akses pelatih diperlukan untuk menyimpan data.');
+        }
+
+        $tingkat_id = (int) $validated['tingkat_id'];
+        $tahunPeriode = TahunPeriode::findOrFail($validated['tahun_periode_id']);
+        $materiLatihan = MateriLatihan::findOrFail($validated['materi_latihan_id']);
+        $siswa = User::with('siswaProfile')->findOrFail($validated['user_id']);
+
+        if (!$siswa->siswaProfile) {
+            return back()->with('error', 'Profil siswa tidak ditemukan.');
+        }
+
+        $tanggalUjian = now()->toDateString();
+
+        foreach ([1, 2, 3] as $nomor) {
+            $p = $validated['penguji'][$nomor];
+            $wiraga = $this->normalizePenilaianScore($p['wiraga']);
+            $wirama = $this->normalizePenilaianScore($p['wirama']);
+            $wirasa = $this->normalizePenilaianScore($p['wirasa']);
+            $rata = $this->rekapUjianService->hitungRataPenguji($wiraga, $wirama, $wirasa);
+
+            NilaiUjianPenguji::updateOrCreate(
+                [
+                    'siswa_id' => $siswa->siswaProfile->id,
+                    'tingkat_id' => $tingkat_id,
+                    'tahun_periode' => $tahunPeriode->periode,
+                    'materi_latihan' => $materiLatihan->nama,
+                    'nomor_penguji' => $nomor,
+                ],
+                [
+                    'user_id' => $siswa->id,
+                    'pelatih_id' => $pelatih_id,
+                    'wiraga' => $wiraga,
+                    'wirama' => $wirama,
+                    'wirasa' => $wirasa,
+                    'rata_penguji' => $rata,
+                    'tanggal_ujian' => $tanggalUjian,
+                ]
+            );
+        }
+
+        $this->rekapUjianService->syncMateriFromPenguji(
+            $siswa,
+            $tingkat_id,
+            $tahunPeriode->periode,
+            $materiLatihan->nama,
+            $pelatih_id
+        );
+
+        $this->rekapUjianService->syncRekapForSiswa(
+            $siswa,
+            $tingkat_id,
+            $tahunPeriode->periode,
+            $pelatih_id
+        );
+
+        return redirect()->route('pelatih.input-nilai-ujian', [
+            'tingkat_id' => $tingkat_id,
+            'tahun_periode_id' => $tahunPeriode->id,
+            'materi_latihan_id' => $materiLatihan->id,
+            'user_id' => $siswa->id,
+        ])->with('success', 'Nilai ujian berhasil disimpan.');
+    }
+
+    public function evaluasiKenaikanTingkat(Request $request)
+    {
+        $tingkat_id = $request->query('tingkat_id');
+        $tahun_periode_id = $request->query('tahun_periode_id');
+        $jenis_penilaian = $request->query('jenis_penilaian');
+
+        $tingkats = Tingkat::orderBy('urutan')->get();
+        $tahunPeriodes = TahunPeriode::orderByDesc('is_default')->orderBy('periode')->get();
+
+        $selectedTahunPeriode = $tahun_periode_id
+            ? TahunPeriode::find($tahun_periode_id)
+            : TahunPeriode::where('is_default', true)->first();
+
+        $rekapRows = collect();
+        $periode = $selectedTahunPeriode?->periode;
+
+        if (!$jenis_penilaian || $jenis_penilaian === 'harian') {
+            $harianQuery = RekapNilaiHarian::with(['user', 'tingkat', 'siswa.tingkat'])
+                ->where('status', RekapNilaiHarian::STATUS_SIAP_EVALUASI)
+                ->where('evaluasi_selesai', false);
+
+            if ($tingkat_id) {
+                $harianQuery->where('tingkat_id', $tingkat_id);
+            }
+            if ($periode) {
+                $harianQuery->where('tahun_periode', $periode);
+            }
+            $harianQuery->whereHas('tingkat', fn ($q) => $q->where('jenis_penilaian', 'harian'));
+
+            $rekapRows = $rekapRows->merge(
+                $harianQuery->get()->map(fn ($rekap) => $this->mapBarisMenungguEvaluasi($rekap, 'harian', $request))
+            );
+        }
+
+        if (!$jenis_penilaian || $jenis_penilaian === 'ujian') {
+            $ujianQuery = RekapNilaiUjian::with(['user', 'tingkat', 'siswa.tingkat'])
+                ->where('status', RekapNilaiUjian::STATUS_SIAP_EVALUASI)
+                ->where('evaluasi_selesai', false);
+
+            if ($tingkat_id) {
+                $ujianQuery->where('tingkat_id', $tingkat_id);
+            }
+            if ($periode) {
+                $ujianQuery->where('tahun_periode', $periode);
+            }
+            $ujianQuery->whereHas('tingkat', fn ($q) => $q->where('jenis_penilaian', 'ujian'));
+
+            $rekapRows = $rekapRows->merge(
+                $ujianQuery->get()->map(fn ($rekap) => $this->mapBarisMenungguEvaluasi($rekap, 'ujian', $request))
+            );
+        }
+
+        $evaluasiQuery = EvaluasiTingkat::with(['siswa.user', 'siswa.tingkat', 'tingkat'])
+            ->orderByDesc('tanggal_evaluasi')
+            ->orderByDesc('id');
+
+        if ($tingkat_id) {
+            $evaluasiQuery->where('tingkat_id', $tingkat_id);
+        }
+
+        if ($selectedTahunPeriode) {
+            $evaluasiQuery->where('tahun_periode', $selectedTahunPeriode->periode);
+        }
+
+        if ($jenis_penilaian && in_array($jenis_penilaian, ['harian', 'ujian'], true)) {
+            $evaluasiQuery->whereHas('tingkat', fn ($q) => $q->where('jenis_penilaian', $jenis_penilaian));
+        }
+
+        $evaluasiTersimpanRows = $evaluasiQuery->get()->map(
+            fn (EvaluasiTingkat $evaluasi) => $this->mapBarisEvaluasiTersimpan($evaluasi)
+        );
+
+        return view('pelatih.evaluasi-kenaikan-tingkat', compact(
+            'tingkats',
+            'tahunPeriodes',
+            'tingkat_id',
+            'tahun_periode_id',
+            'jenis_penilaian',
+            'selectedTahunPeriode',
+            'rekapRows',
+            'evaluasiTersimpanRows'
+        ));
+    }
+
+    public function tetapkanEvaluasiKenaikanTingkat(Request $request)
+    {
+        $validated = $request->validate([
+            'rekap_id' => 'required|integer',
+            'jenis_rekap' => 'required|in:harian,ujian',
+            'keputusan' => 'required|in:naik,tidak_naik',
+        ]);
+
+        $rekap = $this->findRekapMenunggu($validated['jenis_rekap'], (int) $validated['rekap_id']);
+        if (!$rekap) {
+            return back()->with('error', 'Data rekap tidak ditemukan.');
+        }
+
+        $average = (float) $rekap->average;
+        if ($rekap->tingkat->klasifikasiKelulusan($average) !== Tingkat::KELULUSAN_TOLERANSI) {
+            return back()->with('error', 'Keputusan manual hanya untuk status toleransi.');
+        }
+
+        $request->session()->put(
+            $this->draftSessionKey($validated['jenis_rekap'], $rekap->id),
+            $validated['keputusan']
+        );
+
+        return redirect()
+            ->route('pelatih.evaluasi-kenaikan-tingkat', $request->only(['tingkat_id', 'tahun_periode_id', 'jenis_penilaian']))
+            ->with('success', 'Keputusan sementara berhasil ditetapkan. Klik Simpan untuk menyimpan final.');
+    }
+
+    public function storeEvaluasiKenaikanTingkat(Request $request)
+    {
+        $pelatih_id = Auth::user()->pelatihProfile?->id;
+        if (!$pelatih_id) {
+            abort(403, 'Akses pelatih diperlukan untuk menyimpan data.');
+        }
+
+        $validated = $request->validate([
+            'rekap_id' => 'required|array|min:1',
+            'jenis_rekap' => 'required|array',
+            'jenis_rekap.*' => 'in:harian,ujian',
+            'keputusan' => 'required|array',
+            'keputusan.*' => 'nullable|in:naik,tidak_naik',
+        ]);
+
+        $saved = 0;
+
+        DB::transaction(function () use ($validated, $pelatih_id, &$saved, $request) {
+            foreach ($validated['rekap_id'] as $index => $rekapId) {
+                $jenisRekap = $validated['jenis_rekap'][$index] ?? 'harian';
+                $rekap = $this->findRekapMenunggu($jenisRekap, (int) $rekapId);
+                if (!$rekap) {
+                    continue;
+                }
+
+                $tingkat = $rekap->tingkat;
+                $average = (float) $rekap->average;
+                $statusKelulusan = $tingkat->klasifikasiKelulusan($average);
+                $keputusanInput = $validated['keputusan'][$index]
+                    ?? $request->session()->get($this->draftSessionKey($jenisRekap, $rekap->id));
+
+                $keputusan = $this->evaluasiKenaikanService->resolveKeputusan(
+                    $statusKelulusan,
+                    $keputusanInput
+                );
+
+                if (!$keputusan) {
+                    continue;
+                }
+
+                $keputusanManual = $this->evaluasiKenaikanService->isKeputusanManual($statusKelulusan);
+
+                $evalData = [
+                    'rata_rata_nilai' => $average,
+                    'status_kelulusan' => $statusKelulusan,
+                    'status' => $keputusan,
+                    'keputusan_manual' => $keputusanManual,
+                    'pelatih_id' => $pelatih_id,
+                    'tanggal_evaluasi' => now()->toDateString(),
+                    'rekap_nilai_harian_id' => null,
+                    'rekap_nilai_ujian_id' => null,
+                ];
+
+                if ($jenisRekap === 'ujian') {
+                    $evalData['rekap_nilai_ujian_id'] = $rekap->id;
+                } else {
+                    $evalData['rekap_nilai_harian_id'] = $rekap->id;
+                }
+
+                EvaluasiTingkat::updateOrCreate(
+                    [
+                        'siswa_id' => $rekap->siswa_id,
+                        'tingkat_id' => $rekap->tingkat_id,
+                        'tahun_periode' => $rekap->tahun_periode,
+                    ],
+                    $evalData
+                );
+
+                $this->evaluasiKenaikanService->applyKeputusan($rekap, $tingkat, $keputusan);
+
+                $rekap->update(['evaluasi_selesai' => true]);
+                $request->session()->forget($this->draftSessionKey($jenisRekap, $rekap->id));
+                $saved++;
+            }
+        });
+
+        if ($saved === 0) {
+            return redirect()
+                ->route('pelatih.evaluasi-kenaikan-tingkat', $request->only(['tingkat_id', 'tahun_periode_id', 'jenis_penilaian']))
+                ->with('error', 'Tidak ada evaluasi tersimpan. Pastikan siswa toleransi sudah ditetapkan keputusannya.');
+        }
+
+        return redirect()
+            ->route('pelatih.evaluasi-kenaikan-tingkat', $request->only(['tingkat_id', 'tahun_periode_id', 'jenis_penilaian']))
+            ->with('success', "{$saved} evaluasi kenaikan tingkat berhasil disimpan.");
+    }
+
+    private function findRekapMenunggu(string $jenisRekap, int $rekapId): RekapNilaiHarian|RekapNilaiUjian|null
+    {
+        if ($jenisRekap === 'ujian') {
+            $rekap = RekapNilaiUjian::with(['tingkat', 'siswa'])->find($rekapId);
+            $statusSiap = RekapNilaiUjian::STATUS_SIAP_EVALUASI;
+        } else {
+            $rekap = RekapNilaiHarian::with(['tingkat', 'siswa'])->find($rekapId);
+            $statusSiap = RekapNilaiHarian::STATUS_SIAP_EVALUASI;
+        }
+
+        if (!$rekap || $rekap->evaluasi_selesai || $rekap->status !== $statusSiap) {
+            return null;
+        }
+
+        return $rekap;
+    }
+
+    private function mapBarisMenungguEvaluasi(RekapNilaiHarian|RekapNilaiUjian $rekap, string $jenisRekap, Request $request): array
+    {
+        $tingkat = $rekap->tingkat;
+        $average = (float) $rekap->average;
+        $statusKelulusan = $tingkat->klasifikasiKelulusan($average);
+        $sessionDraft = $request->session()->get($this->draftSessionKey($jenisRekap, $rekap->id));
+        $draftKeputusan = $this->evaluasiKenaikanService->resolveKeputusan($statusKelulusan, $sessionDraft);
+
+        $evaluasiSebelumnya = EvaluasiTingkat::where('siswa_id', $rekap->siswa_id)
+            ->where('tingkat_id', $rekap->tingkat_id)
+            ->where('tahun_periode', $rekap->tahun_periode)
+            ->first();
+
+        return [
+            'rekap' => $rekap,
+            'jenis_rekap' => $jenisRekap,
+            'is_evaluasi_ulang' => $evaluasiSebelumnya?->status === EvaluasiTingkat::STATUS_TIDAK_NAIK,
+            'nama' => $rekap->user?->name ?? $rekap->siswa?->nama_lengkap ?? '-',
+            'tingkat_nama' => $tingkat?->nama_tingkat ?? '-',
+            'tingkat_saat_ini' => $rekap->siswa?->tingkat?->nama_tingkat ?? $tingkat?->nama_tingkat ?? '-',
+            'nilai_akhir' => $average,
+            'status_kelulusan' => $statusKelulusan,
+            'status_kelulusan_label' => $tingkat->labelKelulusan($statusKelulusan),
+            'keputusan' => $draftKeputusan,
+            'keputusan_label' => $this->evaluasiKenaikanService->labelKeputusan(
+                $draftKeputusan,
+                $statusKelulusan,
+                $tingkat
+            ),
+            'perlu_tetapkan' => $statusKelulusan === Tingkat::KELULUSAN_TOLERANSI && !$draftKeputusan,
+            'tanggal_evaluasi' => null,
+        ];
+    }
+
+    private function mapBarisEvaluasiTersimpan(EvaluasiTingkat $evaluasi): array
+    {
+        $tingkat = $evaluasi->tingkat;
+        $statusKelulusan = $evaluasi->status_kelulusan;
+
+        return [
+            'evaluasi' => $evaluasi,
+            'nama' => $evaluasi->siswa?->user?->name ?? $evaluasi->siswa?->nama_lengkap ?? '-',
+            'tingkat_nama' => $tingkat?->nama_tingkat ?? '-',
+            'tingkat_saat_ini' => $evaluasi->siswa?->tingkat?->nama_tingkat ?? '-',
+            'nilai_akhir' => (float) $evaluasi->rata_rata_nilai,
+            'status_kelulusan' => $statusKelulusan,
+            'status_kelulusan_label' => $tingkat
+                ? $tingkat->labelKelulusan($statusKelulusan)
+                : ucfirst(str_replace('_', ' ', $statusKelulusan)),
+            'keputusan' => $evaluasi->status,
+            'keputusan_label' => $this->evaluasiKenaikanService->labelKeputusan(
+                $evaluasi->status,
+                $statusKelulusan,
+                $tingkat
+            ),
+            'perlu_tetapkan' => false,
+            'tanggal_evaluasi' => $evaluasi->tanggal_evaluasi?->format('d/m/Y'),
+            'keputusan_manual' => $evaluasi->keputusan_manual,
+        ];
+    }
+
+    private function normalizePenilaianScore(mixed $value): float
+    {
+        $score = round((float) $value, 2);
+
+        return (float) min(100, max(0, $score));
+    }
+
+    private function draftSessionKey(string $jenisRekap, int $rekapId): string
+    {
+        return "evaluasi_draft_{$jenisRekap}_{$rekapId}";
     }
 
     public function showSiswa(User $siswa)

@@ -13,14 +13,20 @@ class TingkatSeeder extends Seeder
      */
     public function run(): void
     {
+        $ambang = [
+            'ambang_tidak_lulus' => 59,
+            'ambang_pertimbangan_min' => 60,
+            'ambang_pertimbangan_max' => 74,
+        ];
+
         Tingkat::insert([
-            ['nama_tingkat' => 'Tingkat Pradasar', 'jenis_penilaian' => 'harian', 'kkm' => 75, 'urutan' => 1],
-            ['nama_tingkat' => 'Tingkat Dasar 1.1', 'jenis_penilaian' => 'harian', 'kkm' => 75, 'urutan' => 2],
-            ['nama_tingkat' => 'Tingkat Dasar 1.2', 'jenis_penilaian' => 'ujian', 'kkm' => 75, 'urutan' => 3],
-            ['nama_tingkat' => 'Tingkat Dasar 2.1', 'jenis_penilaian' => 'harian', 'kkm' => 75, 'urutan' => 4],
-            ['nama_tingkat' => 'Tingkat Dasar 2.2', 'jenis_penilaian' => 'ujian', 'kkm' => 75, 'urutan' => 5],
-            ['nama_tingkat' => 'Tingkat Terampil', 'jenis_penilaian' => 'ujian', 'kkm' => 75, 'urutan' => 6],
-            ['nama_tingkat' => 'Tingkat Lanjut', 'jenis_penilaian' => 'ujian', 'kkm' => 75, 'urutan' => 7],
+            array_merge(['nama_tingkat' => 'Tingkat Pradasar', 'jenis_penilaian' => 'harian', 'kkm' => 75, 'urutan' => 1], $ambang),
+            array_merge(['nama_tingkat' => 'Tingkat Dasar 1.1', 'jenis_penilaian' => 'harian', 'kkm' => 75, 'urutan' => 2], $ambang),
+            array_merge(['nama_tingkat' => 'Tingkat Dasar 1.2', 'jenis_penilaian' => 'ujian', 'kkm' => 75, 'urutan' => 3], $ambang),
+            array_merge(['nama_tingkat' => 'Tingkat Dasar 2.1', 'jenis_penilaian' => 'harian', 'kkm' => 75, 'urutan' => 4], $ambang),
+            array_merge(['nama_tingkat' => 'Tingkat Dasar 2.2', 'jenis_penilaian' => 'ujian', 'kkm' => 75, 'urutan' => 5], $ambang),
+            array_merge(['nama_tingkat' => 'Tingkat Terampil', 'jenis_penilaian' => 'ujian', 'kkm' => 75, 'urutan' => 6], $ambang),
+            array_merge(['nama_tingkat' => 'Tingkat Lanjut', 'jenis_penilaian' => 'ujian', 'kkm' => 75, 'urutan' => 7], $ambang),
         ]);
     }
 }

@@ -5,14 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class RekapNilaiHarian extends Model
+class RekapNilaiUjian extends Model
 {
     use HasFactory;
 
     public const STATUS_BELUM_LENGKAP = 'Belum Lengkap';
     public const STATUS_SIAP_EVALUASI = 'Siap Evaluasi';
 
-    protected $table = 'rekap_nilai_harian';
+    protected $table = 'rekap_nilai_ujian';
 
     protected $fillable = [
         'user_id',

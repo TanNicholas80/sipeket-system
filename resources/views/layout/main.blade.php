@@ -73,9 +73,18 @@
                         <i class="far fa-user"></i> {{ Auth::user()->name }}
                     </a>
                     <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+                        @if(Auth::user()->role === 'siswa')
+                        <a href="{{ route('siswa.profil') }}" class="dropdown-item">
+                            <i class="fas fa-user mr-2"></i> Profil Saya
+                        </a>
+                        <a href="{{ route('profil') }}" class="dropdown-item">
+                            <i class="fas fa-key mr-2"></i> Ubah Password
+                        </a>
+                        @else
                         <a href="{{ route('profil') }}" class="dropdown-item">
                             <i class="fas fa-user mr-2"></i> Profile
                         </a>
+                        @endif
                         <div class="dropdown-divider"></div>
                         <a href="{{ route('logout') }}" class="dropdown-item"
                             onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
@@ -143,6 +152,30 @@
                                 </a>
                             @endif
                         </li>
+
+                        @if(Auth::user()->role == 'siswa')
+                            <li class="nav-item menu">
+                                <a href="{{ route('siswa.profil') }}"
+                                    class="nav-link {{ Request::routeIs('siswa.profil') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-id-card"></i>
+                                    <p>Profil Saya</p>
+                                </a>
+                            </li>
+                            <li class="nav-item menu">
+                                <a href="{{ route('siswa.evaluasi') }}"
+                                    class="nav-link {{ Request::routeIs('siswa.evaluasi') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-chart-line"></i>
+                                    <p>Hasil Evaluasi</p>
+                                </a>
+                            </li>
+                            <li class="nav-item menu">
+                                <a href="{{ route('siswa.riwayat') }}"
+                                    class="nav-link {{ Request::routeIs('siswa.riwayat') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-history"></i>
+                                    <p>Riwayat Tingkat</p>
+                                </a>
+                            </li>
+                        @endif
 
                         @if(Auth::user()->role == 'pelatih')
                             <li class="nav-item menu">

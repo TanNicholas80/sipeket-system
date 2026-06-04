@@ -32,4 +32,9 @@ class RiwayatTingkat extends Model
     {
         return $this->belongsTo(Tingkat::class, 'tingkat_akhir_id');
     }
+
+    public function isMengulang(): bool
+    {
+        return (int) $this->tingkat_awal_id === (int) $this->tingkat_akhir_id;
+    }
 }
