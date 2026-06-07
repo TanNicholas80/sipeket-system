@@ -209,6 +209,26 @@
                                     <p>Eval Kenaikan Tingkat</p>
                                 </a>
                             </li>
+
+                            @php
+                                $pelatihPendingPengajuan = 0;
+                                if (Auth::user()->role === 'pelatih' && Auth::user()->pelatihProfile) {
+                                    $pelatihPendingPengajuan = app(\App\Services\PengajuanMengulangService::class)
+                                        ->countPendingForPelatih(Auth::user()->pelatihProfile);
+                                }
+                            @endphp
+                            <li class="nav-item menu">
+                                <a href="{{ route('pelatih.pengajuan-mengulang') }}"
+                                    class="nav-link {{ Request::routeIs('pelatih.pengajuan-mengulang*') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-redo"></i>
+                                    <p>
+                                        Pengajuan Mengulang
+                                        @if($pelatihPendingPengajuan > 0)
+                                        <span class="badge badge-warning right">{{ $pelatihPendingPengajuan }}</span>
+                                        @endif
+                                    </p>
+                                </a>
+                            </li>
                         @endif
 
                         @if(Auth::user()->role == 'admin')

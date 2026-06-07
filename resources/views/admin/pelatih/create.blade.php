@@ -81,6 +81,7 @@
                                         </span>
                                     @enderror
                                 </div>
+                                @include('admin.pelatih.partials.tingkat-checkboxes', ['assignedTingkatIds' => old('tingkat_ids', [])])
                             </div>
                             <div class="card-footer">
                                 <button type="submit" class="btn btn-primary">Simpan</button>

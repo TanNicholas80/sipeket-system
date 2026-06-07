@@ -3,8 +3,10 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\PelatihController;
 use App\Http\Controllers\Siswa\DashboardController as SiswaDashboardController;
+use App\Http\Controllers\Siswa\PengajuanMengulangController as SiswaPengajuanMengulangController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\AuthController;
@@ -77,13 +79,9 @@ Route::middleware('auth')->group(function () {
             return view('admin.laporan');
         })->name('laporan');
 
-        Route::get('/laporan/evaluasi', function () {
-            return view('admin.laporan.evaluasi');
-        })->name('laporan.evaluasi');
-
-        Route::get('/laporan/riwayat', function () {
-            return view('admin.laporan.riwayat');
-        })->name('laporan.riwayat');
+        Route::get('/laporan/export/siswa', [LaporanController::class, 'exportSiswa'])->name('laporan.export.siswa');
+        Route::get('/laporan/export/evaluasi', [LaporanController::class, 'exportEvaluasi'])->name('laporan.export.evaluasi');
+        Route::get('/laporan/export/riwayat', [LaporanController::class, 'exportRiwayat'])->name('laporan.export.riwayat');
     });
 
     Route::get('/pelatih/dashboard', [PelatihController::class, 'dashboard'])->name('pelatih.dashboard');
@@ -101,10 +99,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/pelatih/evaluasi-kenaikan-tingkat', [PelatihController::class, 'storeEvaluasiKenaikanTingkat'])->name('pelatih.evaluasi-kenaikan-tingkat.store');
     Route::post('/pelatih/evaluasi-kenaikan-tingkat/tetapkan', [PelatihController::class, 'tetapkanEvaluasiKenaikanTingkat'])->name('pelatih.evaluasi-kenaikan-tingkat.tetapkan');
 
+    Route::get('/pelatih/pengajuan-mengulang', [PelatihController::class, 'pengajuanMengulang'])->name('pelatih.pengajuan-mengulang');
+    Route::post('/pelatih/pengajuan-mengulang/{pengajuan}/setujui', [PelatihController::class, 'setujuiPengajuanMengulang'])->name('pelatih.pengajuan-mengulang.setujui');
+    Route::post('/pelatih/pengajuan-mengulang/{pengajuan}/tolak', [PelatihController::class, 'tolakPengajuanMengulang'])->name('pelatih.pengajuan-mengulang.tolak');
+
     Route::get('/siswa/dashboard', [SiswaDashboardController::class, 'index'])->name('siswa.dashboard');
     Route::get('/siswa/profil', [SiswaDashboardController::class, 'profil'])->name('siswa.profil');
     Route::get('/siswa/evaluasi', [SiswaDashboardController::class, 'evaluasi'])->name('siswa.evaluasi');
     Route::get('/siswa/riwayat', [SiswaDashboardController::class, 'riwayat'])->name('siswa.riwayat');
+    Route::post('/siswa/pengajuan-mengulang', [SiswaPengajuanMengulangController::class, 'store'])->name('siswa.pengajuan-mengulang.store');
 
     Route::get('/profil', [UserController::class, 'profil'])->name('profil');
     Route::post('/profil/password', [UserController::class, 'updatePassword'])->name('profil.password');

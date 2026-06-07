@@ -6,6 +6,7 @@ use App\Models\EvaluasiTingkat;
 use App\Models\RekapNilaiHarian;
 use App\Models\RekapNilaiUjian;
 use App\Models\RiwayatTingkat;
+use App\Models\Siswa;
 use App\Models\Tingkat;
 
 class EvaluasiKenaikanTingkatService
@@ -127,6 +128,40 @@ class EvaluasiKenaikanTingkatService
         if ((int) $siswa->tingkat_id !== $tingkatDievaluasi) {
             $siswa->update(['tingkat_id' => $tingkatDievaluasi]);
         }
+    }
+
+    /**
+     * Siswa sedang mengulang wajib setelah keputusan tidak naik dari pelatih.
+     * Berbeda dengan pengulangan sukarela (riwayat turun tingkat, awal != akhir).
+     */
+    public function isInMandatoryRepeat(Siswa $siswa): bool
+    {
+        $siswa->loadMissing('tingkat');
+
+        if (!$siswa->tingkat_id) {
+            return false;
+        }
+
+        $evaluasiTerakhir = EvaluasiTingkat::where('siswa_id', $siswa->id)
+            ->where('tingkat_id', $siswa->tingkat_id)
+            ->orderByDesc('tanggal_evaluasi')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$evaluasiTerakhir || $evaluasiTerakhir->status !== EvaluasiTingkat::STATUS_TIDAK_NAIK) {
+            return false;
+        }
+
+        $riwayatTerakhir = RiwayatTingkat::where('siswa_id', $siswa->id)
+            ->orderByDesc('tanggal_naik')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$riwayatTerakhir || !$riwayatTerakhir->isMengulang()) {
+            return false;
+        }
+
+        return (int) $riwayatTerakhir->tingkat_akhir_id === (int) $siswa->tingkat_id;
     }
 
     public function labelKeputusan(?string $keputusan, string $statusKelulusan, ?Tingkat $tingkat = null): string

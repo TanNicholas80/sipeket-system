@@ -56,7 +56,7 @@
                                     <div class="input-group-prepend">
                                         <span class="input-group-text">+62</span>
                                     </div>
-                                    <input type="text" class="form-control @error('no_hp') is-invalid @enderror" id="no_hp" name="no_hp" value="{{ old('no_hp', ltrim($pelatih->no_hp ?? '', '+62')) }}" placeholder="81234567890" pattern="[0-9]+" maxlength="13" oninput="this.value=this.value.replace(/[^0-9]/g,'')" required>
+                                    <input type="text" class="form-control @error('no_hp') is-invalid @enderror" id="no_hp" name="no_hp" value="{{ old('no_hp', ltrim($pelatih->pelatihProfile?->no_hp ?? '', '+62')) }}" placeholder="81234567890" pattern="[0-9]+" maxlength="13" oninput="this.value=this.value.replace(/[^0-9]/g,'')" required>
                                 </div>
                                 @error('no_hp')
                                 <span class="invalid-feedback" role="alert">
@@ -66,13 +66,14 @@
                             </div>
                             <div class="form-group">
                                 <label for="alamat">Alamat</label>
-                                <textarea class="form-control @error('alamat') is-invalid @enderror" id="alamat" name="alamat" rows="3" placeholder="Masukkan alamat" required>{{ old('alamat', $pelatih->alamat) }}</textarea>
+                                <textarea class="form-control @error('alamat') is-invalid @enderror" id="alamat" name="alamat" rows="3" placeholder="Masukkan alamat" required>{{ old('alamat', $pelatih->pelatihProfile?->alamat) }}</textarea>
                                 @error('alamat')
                                 <span class="invalid-feedback" role="alert">
                                     <strong>{{ $message }}</strong>
                                 </span>
                                 @enderror
                             </div>
+                            @include('admin.pelatih.partials.tingkat-checkboxes')
                         </div>
                         <div class="card-footer">
                             <button type="submit" class="btn btn-primary">Update</button>

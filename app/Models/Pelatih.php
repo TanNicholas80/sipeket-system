@@ -41,4 +41,10 @@ class Pelatih extends Model
     {
         return $this->hasMany(EvaluasiTingkat::class);
     }
+
+    public function tingkats()
+    {
+        return $this->belongsToMany(Tingkat::class, 'pelatih_tingkat', 'pelatih_id', 'tingkat_id')
+            ->withTimestamps();
+    }
 }

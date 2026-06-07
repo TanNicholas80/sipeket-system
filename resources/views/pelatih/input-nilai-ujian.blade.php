@@ -43,15 +43,15 @@
 
         <div class="card card-outline card-primary mb-3">
             <div class="card-body">
-                <p class="text-muted mb-3" style="font-size: 13px;">Penilaian tingkat ujian dengan 3 penguji (tingkat penilaian ujian saja)</p>
+                <p class="text-muted mb-3" style="font-size: 13px;">Penilaian tingkat ujian dengan 3 penguji — satu penilaian per siswa per periode</p>
                 @if($tingkats->isEmpty())
                 <div class="alert alert-warning">
-                    Belum ada data tingkat dengan jenis penilaian ujian.
+                    Belum ada data tingkat dengan jenis penilaian ujian. Hubungi admin untuk menambahkan tingkat.
                 </div>
                 @endif
                 <form method="GET" action="{{ route('pelatih.input-nilai-ujian') }}" id="formFilterUjian">
                     <div class="row align-items-end">
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="tingkat_id">Tingkat</label>
                             <select class="form-control" id="tingkat_id" name="tingkat_id" required {{ ($isApplied || $tingkats->isEmpty()) ? 'disabled' : '' }}>
                                 <option value="">- Pilih Tingkat -</option>
@@ -62,7 +62,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="tahun_periode_id">Periode</label>
                             <select class="form-control" id="tahun_periode_id" name="tahun_periode_id" {{ $isApplied ? 'disabled' : '' }}>
                                 <option value="">- Pilih Periode -</option>
@@ -73,19 +73,8 @@
                                 @endforeach
                             </select>
                         </div>
-                        @if($canSelectMateri)
-                        <div class="col-md-3 mb-3">
-                            <label for="materi_latihan_id">Materi Ujian</label>
-                            <select class="form-control" id="materi_latihan_id" name="materi_latihan_id" {{ $isApplied ? 'disabled' : '' }}>
-                                <option value="">- Pilih Materi Ujian -</option>
-                                @foreach($materiLatihans as $materi)
-                                <option value="{{ $materi->id }}" {{ (string) $materi_latihan_id === (string) $materi->id ? 'selected' : '' }}>
-                                    {{ $materi->nama }}
-                                </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-3 mb-3">
+                        @if($canSelectSiswa)
+                        <div class="col-md-4 mb-3">
                             <label for="user_id">Nama Siswa</label>
                             <select class="form-control" id="user_id" name="user_id" {{ $isApplied ? 'disabled' : '' }}>
                                 <option value="">- Pilih Siswa -</option>
@@ -97,7 +86,7 @@
                             </select>
                         </div>
                         @endif
-                        <div class="col-md-12 col-lg-{{ $canSelectMateri ? '12' : '6' }} mb-3">
+                        <div class="col-md-12 mb-3">
                             <button type="submit" class="btn btn-primary" {{ ($isApplied || $tingkats->isEmpty()) ? 'disabled' : '' }}>Terapkan</button>
                             <a href="{{ route('pelatih.input-nilai-ujian') }}" class="btn btn-secondary ml-2">Reset</a>
                         </div>
@@ -106,9 +95,9 @@
                     <div class="alert alert-success mt-2 mb-0">
                         Filter diterapkan. Isi penilaian 3 penguji lalu klik Simpan.
                     </div>
-                    @elseif($canSelectMateri)
+                    @elseif($canSelectSiswa)
                     <div class="alert alert-info mt-2 mb-0">
-                        Pilih materi ujian dan nama siswa, lalu klik Terapkan.
+                        Pilih nama siswa, lalu klik Terapkan. Siswa yang sudah ujian tidak ditampilkan kecuali evaluasi ulang.
                     </div>
                     @elseif($tingkat_id)
                     <div class="alert alert-info mt-2 mb-0">
@@ -124,7 +113,6 @@
             @csrf
             <input type="hidden" name="tingkat_id" value="{{ $tingkat_id }}">
             <input type="hidden" name="tahun_periode_id" value="{{ $tahun_periode_id }}">
-            <input type="hidden" name="materi_latihan_id" value="{{ $materi_latihan_id }}">
             <input type="hidden" name="user_id" value="{{ $user_id }}">
 
             <p class="text-muted small mb-3">Skor wiraga, wirama, dan wirasa setiap penguji: <strong>0,00 – 100,00</strong> (maks. 2 desimal).</p>
@@ -185,7 +173,7 @@
                             <h4 id="rekapPenguji3">{{ number_format($pengujiScores[3]['rata'] ?? 0, 2) }}</h4>
                         </div>
                         <div class="col-md-3">
-                            <p class="text-muted mb-1">Nilai Fix Materi Ujian</p>
+                            <p class="text-muted mb-1">Nilai Akhir Ujian</p>
                             <h4 class="text-primary" id="nilaiFixMateri">0.00</h4>
                             <small class="text-muted">Rata-rata ketiga penguji</small>
                         </div>
@@ -201,15 +189,12 @@
         <h5 class="mb-2">Rekap Nilai Ujian</h5>
         <div class="card mb-3">
             <div class="card-body p-0">
-                @if($showRekap && $materiColumns->count() > 0)
+                @if($showRekap && $rekapNilai->isNotEmpty())
                 <table class="table table-bordered table-striped mb-0">
                     <thead class="thead-light">
                         <tr>
                             <th>Nama Siswa</th>
-                            @foreach($materiColumns as $materi)
-                            <th>{{ $materi }}</th>
-                            @endforeach
-                            <th>Rata-Rata</th>
+                            <th>Nilai Akhir</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -217,15 +202,6 @@
                         @foreach($rekapNilai as $row)
                         <tr>
                             <td>{{ $row['siswa']->name }}</td>
-                            @foreach($materiColumns as $materi)
-                            <td>
-                                @if(!is_null($row['nilaiPerMateri'][$materi]))
-                                    {{ number_format($row['nilaiPerMateri'][$materi], 1) }}
-                                @else
-                                    -
-                                @endif
-                            </td>
-                            @endforeach
                             <td>
                                 @if(!is_null($row['average']))
                                     {{ number_format($row['average'], 1) }}
@@ -246,7 +222,7 @@
                 </table>
                 @elseif($showRekap)
                 <div class="p-3">
-                    <p class="mb-0">Belum ada materi ujian untuk tingkat ini. Tambahkan di menu admin terlebih dahulu.</p>
+                    <p class="mb-0">Belum ada data nilai ujian untuk tingkat dan periode ini.</p>
                 </div>
                 @else
                 <div class="p-3">
@@ -307,14 +283,10 @@
 
         const filterForm = document.getElementById('formFilterUjian');
         if (filterForm && !{{ $isApplied ? 'true' : 'false' }}) {
-            ['tingkat_id', 'tahun_periode_id', 'materi_latihan_id', 'user_id'].forEach(function (id) {
+            ['tingkat_id', 'tahun_periode_id', 'user_id'].forEach(function (id) {
                 const el = document.getElementById(id);
                 if (el) {
                     el.addEventListener('change', function () {
-                        if (id === 'materi_latihan_id' && !document.getElementById('user_id')) {
-                            filterForm.submit();
-                            return;
-                        }
                         if (id !== 'user_id' || el.value) {
                             filterForm.submit();
                         }

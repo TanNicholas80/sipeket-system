@@ -48,6 +48,26 @@ class Tingkat extends Model
         return $this->hasMany(MateriLatihan::class);
     }
 
+    public function pelatihs()
+    {
+        return $this->belongsToMany(Pelatih::class, 'pelatih_tingkat', 'tingkat_id', 'pelatih_id')
+            ->withTimestamps();
+    }
+
+    public static function allowedForPendaftaran()
+    {
+        return static::whereIn('nama_tingkat', [
+            'Tingkat Pradasar',
+            'Tingkat Dasar 1.1',
+            'Tingkat Lanjut',
+        ])->orderBy('urutan')->get();
+    }
+
+    public static function allowedForPendaftaranIds(): array
+    {
+        return static::allowedForPendaftaran()->pluck('id')->all();
+    }
+
     public const KELULUSAN_LULUS = 'lulus';
     public const KELULUSAN_TOLERANSI = 'toleransi';
     public const KELULUSAN_TIDAK_LULUS = 'tidak_lulus';

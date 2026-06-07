@@ -7,13 +7,17 @@ use App\Models\MateriLatihan;
 use App\Models\NilaiHarian;
 use App\Models\NilaiUjianMateri;
 use App\Models\NilaiUjianPenguji;
+use App\Models\PengajuanMengulangTingkat;
 use App\Models\Pendaftaran;
+use App\Models\Pelatih;
 use App\Models\RekapNilaiHarian;
 use App\Models\RekapNilaiUjian;
 use App\Models\Tingkat;
 use App\Models\TahunPeriode;
 use App\Models\User;
 use App\Services\EvaluasiKenaikanTingkatService;
+use App\Services\PengajuanMengulangService;
+use App\Services\PelatihTingkatAccessService;
 use App\Services\RekapNilaiHarianService;
 use App\Services\RekapNilaiUjianService;
 use Illuminate\Http\Request;
@@ -26,24 +30,40 @@ class PelatihController extends Controller
     public function __construct(
         protected RekapNilaiHarianService $rekapService,
         protected RekapNilaiUjianService $rekapUjianService,
-        protected EvaluasiKenaikanTingkatService $evaluasiKenaikanService
+        protected EvaluasiKenaikanTingkatService $evaluasiKenaikanService,
+        protected PelatihTingkatAccessService $tingkatAccessService,
+        protected PengajuanMengulangService $pengajuanMengulangService
     ) {}
 
     public function dashboard()
     {
-        $totalSiswaAktif = User::where('role', 'siswa')->where('status', 'aktif')->count();
+        $pelatih = $this->authPelatihProfile();
+        $accessibleTingkats = $this->tingkatAccessService->accessibleTingkats($pelatih);
+        $allowedIds = $this->tingkatAccessService->accessibleTingkatIds($pelatih);
+
+        $totalSiswaAktif = $allowedIds->isEmpty()
+            ? 0
+            : User::where('role', 'siswa')
+                ->where('status', 'aktif')
+                ->whereHas('siswaProfile', fn ($q) => $q->whereIn('tingkat_id', $allowedIds))
+                ->count();
+
         $totalPendaftar = Pendaftaran::count();
         $pendaftarTerbaru = Pendaftaran::with('tingkat')->latest()->take(5)->get();
+        $totalPengajuanPending = $this->pengajuanMengulangService->countPendingForPelatih($pelatih);
 
         return view('pelatih.dashboard', compact(
             'totalSiswaAktif',
             'totalPendaftar',
-            'pendaftarTerbaru'
+            'pendaftarTerbaru',
+            'accessibleTingkats',
+            'totalPengajuanPending'
         ));
     }
 
     public function dataSiswa(Request $request)
     {
+        $pelatih = $this->authPelatihProfile();
         $search = $request->query('search');
         $tingkat_id = $request->query('tingkat_id');
         $status = $request->query('status');
@@ -51,11 +71,17 @@ class PelatihController extends Controller
         $query = User::where('role', 'siswa')
             ->with(['siswaProfile.tingkat']);
 
+        $this->tingkatAccessService->scopeUsersInAccessibleTingkat($query, $pelatih);
+
         if ($search) {
             $query->where('name', 'like', "%{$search}%");
         }
 
         if ($tingkat_id) {
+            if (!$this->tingkatAccessService->canAccessTingkat($pelatih, (int) $tingkat_id)) {
+                abort(403, 'Anda tidak memiliki akses ke tingkat ini.');
+            }
+
             $query->whereHas('siswaProfile', function ($q) use ($tingkat_id) {
                 $q->where('tingkat_id', $tingkat_id);
             });
@@ -66,18 +92,22 @@ class PelatihController extends Controller
         }
 
         $siswas = $query->get();
-        $tingkats = Tingkat::all();
+        $tingkats = $this->tingkatAccessService->accessibleTingkats($pelatih);
 
         return view('pelatih.data-siswa', compact('siswas', 'tingkats', 'search', 'tingkat_id', 'status'));
     }
 
     public function inputNilaiHarian(Request $request)
     {
+        $pelatih = $this->authPelatihProfile();
         $tingkat_id = $request->query('tingkat_id');
         $tahun_periode_id = $request->query('tahun_periode_id');
         $materi_latihan_id = $request->query('materi_latihan_id');
 
-        $tingkats = Tingkat::where('jenis_penilaian', 'harian')->orderBy('urutan')->get();
+        $tingkats = $this->tingkatAccessService->filterTingkats(
+            Tingkat::where('jenis_penilaian', 'harian')->orderBy('urutan')->get(),
+            $pelatih
+        );
 
         if ($tingkat_id && !$tingkats->contains('id', (int) $tingkat_id)) {
             $tingkat_id = null;
@@ -180,17 +210,16 @@ class PelatihController extends Controller
             'wirama.*.decimal' => 'Nilai wirama maksimal 2 angka di belakang koma.',
         ]);
 
+        $pelatih = $this->authPelatihProfile();
+        $pelatih_id = $pelatih->id;
+        $this->tingkatAccessService->assertCanAccessTingkat($pelatih, (int) $validated['tingkat_id']);
+
         $tingkat_id = $validated['tingkat_id'];
         $tahunPeriode = TahunPeriode::findOrFail($validated['tahun_periode_id']);
         $materiLatihan = MateriLatihan::findOrFail($validated['materi_latihan_id']);
         $wiraga = $validated['wiraga'];
         $wirasa = $validated['wirasa'];
         $wirama = $validated['wirama'];
-
-        $pelatih_id = Auth::user()->pelatihProfile?->id;
-        if (!$pelatih_id) {
-            abort(403, 'Akses pelatih diperlukan untuk menyimpan data.');
-        }
 
         foreach ($wiraga as $user_id => $nilai) {
             $siswa = User::with('siswaProfile')->find($user_id);
@@ -240,49 +269,53 @@ class PelatihController extends Controller
 
     public function inputNilaiUjian(Request $request)
     {
+        $pelatih = $this->authPelatihProfile();
         $tingkat_id = $request->query('tingkat_id');
         $tahun_periode_id = $request->query('tahun_periode_id');
-        $materi_latihan_id = $request->query('materi_latihan_id');
         $user_id = $request->query('user_id');
 
-        $tingkats = Tingkat::where('jenis_penilaian', 'ujian')->orderBy('urutan')->get();
+        $tingkats = $this->tingkatAccessService->filterTingkats(
+            Tingkat::where('jenis_penilaian', 'ujian')->orderBy('urutan')->get(),
+            $pelatih
+        );
 
         if ($tingkat_id && !$tingkats->contains('id', (int) $tingkat_id)) {
             $tingkat_id = null;
-            $materi_latihan_id = null;
             $user_id = null;
         }
 
         $tahunPeriodes = TahunPeriode::orderByDesc('is_default')->orderBy('periode')->get();
-        $canSelectMateri = !empty($tingkat_id) && !empty($tahun_periode_id);
-        $materiLatihans = collect();
-
-        if ($canSelectMateri) {
-            $materiLatihans = MateriLatihan::where('tingkat_id', $tingkat_id)
-                ->orderBy('nama')
-                ->get();
-        }
+        $canSelectSiswa = !empty($tingkat_id) && !empty($tahun_periode_id);
 
         $selectedTahunPeriode = $tahun_periode_id ? TahunPeriode::find($tahun_periode_id) : null;
-        $selectedMateriLatihan = $materi_latihan_id ? MateriLatihan::find($materi_latihan_id) : null;
-        $isApplied = !empty($tingkat_id) && !empty($tahun_periode_id) && !empty($materi_latihan_id)
-            && !empty($user_id) && $selectedTahunPeriode && $selectedMateriLatihan;
+        $isApplied = !empty($tingkat_id) && !empty($tahun_periode_id) && !empty($user_id) && $selectedTahunPeriode;
         $showRekap = !empty($tingkat_id) && $selectedTahunPeriode;
 
         $siswas = collect();
         $pengujiScores = [];
         $rekapNilai = collect();
-        $materiColumns = collect();
         $selectedUser = null;
 
-        if ($canSelectMateri) {
+        if ($canSelectSiswa && $selectedTahunPeriode) {
             $siswas = User::where('role', 'siswa')
                 ->with(['siswaProfile.tingkat'])
                 ->whereHas('siswaProfile', function ($q) use ($tingkat_id) {
                     $q->where('tingkat_id', $tingkat_id);
                 })
                 ->orderBy('name')
-                ->get();
+                ->get()
+                ->filter(function ($siswa) use ($tingkat_id, $selectedTahunPeriode) {
+                    if (!$siswa->siswaProfile) {
+                        return false;
+                    }
+
+                    return $this->rekapUjianService->canInputUjian(
+                        $siswa->siswaProfile->id,
+                        (int) $tingkat_id,
+                        $selectedTahunPeriode->periode
+                    );
+                })
+                ->values();
         }
 
         if ($isApplied) {
@@ -291,15 +324,14 @@ class PelatihController extends Controller
                 $pengujiScores = $this->rekapUjianService->getPengujiScoresForForm(
                     $selectedUser->siswaProfile->id,
                     (int) $tingkat_id,
-                    $selectedTahunPeriode->periode,
-                    $selectedMateriLatihan->nama
+                    $selectedTahunPeriode->periode
                 );
             }
         }
 
         if ($showRekap) {
             $materiMaster = $this->rekapUjianService->getMateriMasterForTingkat((int) $tingkat_id);
-            $materiColumns = $materiMaster->pluck('nama');
+            $materiLabel = RekapNilaiUjianService::MATERI_UJIAN_LABEL;
 
             $siswaList = User::where('role', 'siswa')
                 ->with(['siswaProfile.tingkat'])
@@ -311,7 +343,7 @@ class PelatihController extends Controller
             $nilaiMateri = NilaiUjianMateri::where('tingkat_id', $tingkat_id)
                 ->where('tahun_periode', $selectedTahunPeriode->periode)
                 ->whereIn('user_id', $siswaList->pluck('id'))
-                ->when($materiColumns->isNotEmpty(), fn ($q) => $q->whereIn('materi_latihan', $materiColumns))
+                ->where('materi_latihan', $materiLabel)
                 ->get();
 
             $rekapNilai = $siswaList->map(
@@ -323,19 +355,15 @@ class PelatihController extends Controller
             'tingkats',
             'tingkat_id',
             'tahun_periode_id',
-            'materi_latihan_id',
             'user_id',
-            'canSelectMateri',
+            'canSelectSiswa',
             'tahunPeriodes',
-            'materiLatihans',
             'selectedTahunPeriode',
-            'selectedMateriLatihan',
             'isApplied',
             'showRekap',
             'siswas',
             'pengujiScores',
             'rekapNilai',
-            'materiColumns',
             'selectedUser'
         ));
     }
@@ -348,7 +376,6 @@ class PelatihController extends Controller
                 Rule::exists('tingkat', 'id')->where(fn ($query) => $query->where('jenis_penilaian', 'ujian')),
             ],
             'tahun_periode_id' => 'required|exists:tahun_periode,id',
-            'materi_latihan_id' => 'required|exists:materi_latihan,id',
             'user_id' => 'required|exists:users,id',
             'penguji' => 'required|array',
             'penguji.1' => 'required|array',
@@ -366,18 +393,25 @@ class PelatihController extends Controller
             'penguji.*.wirasa.decimal' => 'Nilai wirasa maksimal 2 angka di belakang koma.',
         ]);
 
-        $pelatih_id = Auth::user()->pelatihProfile?->id;
-        if (!$pelatih_id) {
-            abort(403, 'Akses pelatih diperlukan untuk menyimpan data.');
-        }
+        $pelatih = $this->authPelatihProfile();
+        $pelatih_id = $pelatih->id;
+        $this->tingkatAccessService->assertCanAccessTingkat($pelatih, (int) $validated['tingkat_id']);
 
         $tingkat_id = (int) $validated['tingkat_id'];
         $tahunPeriode = TahunPeriode::findOrFail($validated['tahun_periode_id']);
-        $materiLatihan = MateriLatihan::findOrFail($validated['materi_latihan_id']);
         $siswa = User::with('siswaProfile')->findOrFail($validated['user_id']);
+        $materiLabel = RekapNilaiUjianService::MATERI_UJIAN_LABEL;
 
         if (!$siswa->siswaProfile) {
             return back()->with('error', 'Profil siswa tidak ditemukan.');
+        }
+
+        if (!$this->rekapUjianService->canInputUjian(
+            $siswa->siswaProfile->id,
+            $tingkat_id,
+            $tahunPeriode->periode
+        )) {
+            return back()->with('error', 'Siswa ini sudah memiliki nilai ujian lengkap untuk periode ini.');
         }
 
         $tanggalUjian = now()->toDateString();
@@ -394,7 +428,7 @@ class PelatihController extends Controller
                     'siswa_id' => $siswa->siswaProfile->id,
                     'tingkat_id' => $tingkat_id,
                     'tahun_periode' => $tahunPeriode->periode,
-                    'materi_latihan' => $materiLatihan->nama,
+                    'materi_latihan' => $materiLabel,
                     'nomor_penguji' => $nomor,
                 ],
                 [
@@ -413,7 +447,7 @@ class PelatihController extends Controller
             $siswa,
             $tingkat_id,
             $tahunPeriode->periode,
-            $materiLatihan->nama,
+            $materiLabel,
             $pelatih_id
         );
 
@@ -427,18 +461,24 @@ class PelatihController extends Controller
         return redirect()->route('pelatih.input-nilai-ujian', [
             'tingkat_id' => $tingkat_id,
             'tahun_periode_id' => $tahunPeriode->id,
-            'materi_latihan_id' => $materiLatihan->id,
             'user_id' => $siswa->id,
         ])->with('success', 'Nilai ujian berhasil disimpan.');
     }
 
     public function evaluasiKenaikanTingkat(Request $request)
     {
+        $pelatih = $this->authPelatihProfile();
         $tingkat_id = $request->query('tingkat_id');
         $tahun_periode_id = $request->query('tahun_periode_id');
         $jenis_penilaian = $request->query('jenis_penilaian');
+        $allowedIds = $this->tingkatAccessService->accessibleTingkatIds($pelatih);
 
-        $tingkats = Tingkat::orderBy('urutan')->get();
+        if ($tingkat_id && !$this->tingkatAccessService->canAccessTingkat($pelatih, (int) $tingkat_id)) {
+            abort(403, 'Anda tidak memiliki akses ke tingkat ini.');
+        }
+
+        $tingkats = $this->tingkatAccessService->accessibleTingkats($pelatih);
+
         $tahunPeriodes = TahunPeriode::orderByDesc('is_default')->orderBy('periode')->get();
 
         $selectedTahunPeriode = $tahun_periode_id
@@ -452,6 +492,10 @@ class PelatihController extends Controller
             $harianQuery = RekapNilaiHarian::with(['user', 'tingkat', 'siswa.tingkat'])
                 ->where('status', RekapNilaiHarian::STATUS_SIAP_EVALUASI)
                 ->where('evaluasi_selesai', false);
+
+            if ($this->tingkatAccessService->hasRestrictedAccess($pelatih)) {
+                $harianQuery->whereIn('tingkat_id', $allowedIds);
+            }
 
             if ($tingkat_id) {
                 $harianQuery->where('tingkat_id', $tingkat_id);
@@ -471,6 +515,10 @@ class PelatihController extends Controller
                 ->where('status', RekapNilaiUjian::STATUS_SIAP_EVALUASI)
                 ->where('evaluasi_selesai', false);
 
+            if ($this->tingkatAccessService->hasRestrictedAccess($pelatih)) {
+                $ujianQuery->whereIn('tingkat_id', $allowedIds);
+            }
+
             if ($tingkat_id) {
                 $ujianQuery->where('tingkat_id', $tingkat_id);
             }
@@ -484,8 +532,13 @@ class PelatihController extends Controller
             );
         }
 
-        $evaluasiQuery = EvaluasiTingkat::with(['siswa.user', 'siswa.tingkat', 'tingkat'])
-            ->orderByDesc('tanggal_evaluasi')
+        $evaluasiQuery = EvaluasiTingkat::with(['siswa.user', 'siswa.tingkat', 'tingkat']);
+
+        if ($this->tingkatAccessService->hasRestrictedAccess($pelatih)) {
+            $evaluasiQuery->whereIn('tingkat_id', $allowedIds);
+        }
+
+        $evaluasiQuery->orderByDesc('tanggal_evaluasi')
             ->orderByDesc('id');
 
         if ($tingkat_id) {
@@ -529,6 +582,11 @@ class PelatihController extends Controller
             return back()->with('error', 'Data rekap tidak ditemukan.');
         }
 
+        $this->tingkatAccessService->assertCanAccessTingkat(
+            $this->authPelatihProfile(),
+            (int) $rekap->tingkat_id
+        );
+
         $average = (float) $rekap->average;
         if ($rekap->tingkat->klasifikasiKelulusan($average) !== Tingkat::KELULUSAN_TOLERANSI) {
             return back()->with('error', 'Keputusan manual hanya untuk status toleransi.');
@@ -546,10 +604,8 @@ class PelatihController extends Controller
 
     public function storeEvaluasiKenaikanTingkat(Request $request)
     {
-        $pelatih_id = Auth::user()->pelatihProfile?->id;
-        if (!$pelatih_id) {
-            abort(403, 'Akses pelatih diperlukan untuk menyimpan data.');
-        }
+        $pelatih = $this->authPelatihProfile();
+        $pelatih_id = $pelatih->id;
 
         $validated = $request->validate([
             'rekap_id' => 'required|array|min:1',
@@ -561,11 +617,15 @@ class PelatihController extends Controller
 
         $saved = 0;
 
-        DB::transaction(function () use ($validated, $pelatih_id, &$saved, $request) {
+        DB::transaction(function () use ($validated, $pelatih_id, $pelatih, &$saved, $request) {
             foreach ($validated['rekap_id'] as $index => $rekapId) {
                 $jenisRekap = $validated['jenis_rekap'][$index] ?? 'harian';
                 $rekap = $this->findRekapMenunggu($jenisRekap, (int) $rekapId);
                 if (!$rekap) {
+                    continue;
+                }
+
+                if (!$this->tingkatAccessService->canAccessTingkat($pelatih, (int) $rekap->tingkat_id)) {
                     continue;
                 }
 
@@ -629,6 +689,17 @@ class PelatihController extends Controller
         return redirect()
             ->route('pelatih.evaluasi-kenaikan-tingkat', $request->only(['tingkat_id', 'tahun_periode_id', 'jenis_penilaian']))
             ->with('success', "{$saved} evaluasi kenaikan tingkat berhasil disimpan.");
+    }
+
+    private function authPelatihProfile(): Pelatih
+    {
+        $pelatih = Auth::user()->pelatihProfile?->load('tingkats');
+
+        if (!$pelatih) {
+            abort(403, 'Akses pelatih diperlukan.');
+        }
+
+        return $pelatih;
     }
 
     private function findRekapMenunggu(string $jenisRekap, int $rekapId): RekapNilaiHarian|RekapNilaiUjian|null
@@ -727,9 +798,81 @@ class PelatihController extends Controller
             abort(404);
         }
 
+        $pelatih = $this->authPelatihProfile();
         $siswa->load(['pendaftaran.tingkat', 'siswaProfile.tingkat']);
+
+        $tingkatId = $siswa->siswaProfile?->tingkat_id;
+        if ($tingkatId && !$this->tingkatAccessService->canAccessTingkat($pelatih, (int) $tingkatId)) {
+            abort(403, 'Anda tidak memiliki akses ke siswa ini.');
+        }
 
         return view('pelatih.siswa.show', compact('siswa'));
     }
-}
 
+    public function pengajuanMengulang()
+    {
+        $pelatih = $this->authPelatihProfile();
+
+        $pendingPengajuan = $this->pengajuanMengulangService->pendingForPelatih($pelatih);
+        $historyPengajuan = $this->pengajuanMengulangService->historyForPelatih($pelatih);
+
+        return view('pelatih.pengajuan-mengulang', compact(
+            'pendingPengajuan',
+            'historyPengajuan'
+        ));
+    }
+
+    public function setujuiPengajuanMengulang(Request $request, PengajuanMengulangTingkat $pengajuan)
+    {
+        $pelatih = $this->authPelatihProfile();
+
+        if (!$this->tingkatAccessService->canAccessTingkat($pelatih, (int) $pengajuan->tingkat_id)) {
+            abort(403, 'Anda tidak memiliki akses ke tingkat pengajuan ini.');
+        }
+
+        $validated = $request->validate([
+            'catatan_pelatih' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $this->pengajuanMengulangService->approve(
+                $pengajuan,
+                $pelatih,
+                $validated['catatan_pelatih'] ?? null
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('pelatih.pengajuan-mengulang')
+            ->with('success', 'Pengajuan mengulang tingkat berhasil disetujui. Siswa telah dipindahkan ke tingkat yang diajukan.');
+    }
+
+    public function tolakPengajuanMengulang(Request $request, PengajuanMengulangTingkat $pengajuan)
+    {
+        $pelatih = $this->authPelatihProfile();
+
+        if (!$this->tingkatAccessService->canAccessTingkat($pelatih, (int) $pengajuan->tingkat_id)) {
+            abort(403, 'Anda tidak memiliki akses ke tingkat pengajuan ini.');
+        }
+
+        $validated = $request->validate([
+            'catatan_pelatih' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $this->pengajuanMengulangService->reject(
+                $pengajuan,
+                $pelatih,
+                $validated['catatan_pelatih'] ?? null
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('pelatih.pengajuan-mengulang')
+            ->with('success', 'Pengajuan mengulang tingkat telah ditolak.');
+    }
+}

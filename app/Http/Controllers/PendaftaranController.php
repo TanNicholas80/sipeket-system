@@ -5,17 +5,20 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Pendaftaran;
 use App\Models\Tingkat;
+use Illuminate\Validation\Rule;
 
 class PendaftaranController extends Controller
 {
     public function create()
     {
-        $tingkat = Tingkat::orderBy('urutan')->get();
+        $tingkat = Tingkat::allowedForPendaftaran();
         return view('pendaftaran.create', compact('tingkat'));
     }
 
     public function store(Request $request)
     {
+        $allowedIds = Tingkat::allowedForPendaftaranIds();
+
         $request->validate([
             'nama_lengkap' => 'required',
             'email' => 'required|email|unique:pendaftaran,email',
@@ -27,14 +30,15 @@ class PendaftaranController extends Controller
             'kontak_aktif' => 'required|numeric|digits_between:9,13',
             'akta_kelahiran' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
             'alamat' => 'required|string',
-            'tingkat_id' => 'required',
+            'tingkat_id' => ['required', Rule::in($allowedIds)],
             'nama_orangtua' => 'required|string|max:255',
             'pekerjaan_orangtua' => 'required|string|max:255',
             'kontak_orangtua' => 'required|numeric|digits_between:9,13',
             'alamat_orangtua' => 'required|string',
+        ], [
+            'tingkat_id.in' => 'Tingkat yang dipilih tidak valid. Pilih Tingkat Pradasar, Tingkat Dasar 1.1, atau Tingkat Lanjut.',
         ]);
 
-        // Upload file
         $filePath = $request->file('akta_kelahiran')
             ->store('akta_kelahiran', 'public');
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pelatih;
+use App\Models\Tingkat;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -11,13 +12,14 @@ class PelatihController extends Controller
 {
     public function index()
     {
-        $pelatihs = User::where('role', 'pelatih')->with('pelatihProfile')->get();
+        $pelatihs = User::where('role', 'pelatih')->with(['pelatihProfile.tingkats'])->get();
         return view('admin.pelatih.index', compact('pelatihs'));
     }
 
     public function create()
     {
-        return view('admin.pelatih.create');
+        $tingkats = Tingkat::orderBy('urutan')->get();
+        return view('admin.pelatih.create', compact('tingkats'));
     }
 
     public function store(Request $request)
@@ -28,6 +30,8 @@ class PelatihController extends Controller
             'password' => 'required|string|min:8',
             'no_hp' => 'required|string|max:15',
             'alamat' => 'required|string',
+            'tingkat_ids' => 'nullable|array',
+            'tingkat_ids.*' => 'exists:tingkat,id',
         ]);
 
         $user = User::create([
@@ -39,40 +43,42 @@ class PelatihController extends Controller
             'status' => 'aktif',
         ]);
 
-        $user->pelatihProfile()->create([
+        $profile = $user->pelatihProfile()->create([
             'nama_lengkap' => $data['name'],
             'no_hp' => '+62' . $data['no_hp'],
             'alamat' => $data['alamat'],
         ]);
+
+        $profile->tingkats()->sync($data['tingkat_ids'] ?? []);
 
         return redirect()->route('admin.pelatih.index')->with('success', 'Pelatih berhasil ditambahkan.');
     }
 
     public function show(User $pelatih)
     {
-        // Ensure this is a pelatih user
         if ($pelatih->role !== 'pelatih') {
             abort(404);
         }
 
-        $pelatih->load('pelatihProfile');
+        $pelatih->load(['pelatihProfile.tingkats']);
         return view('admin.pelatih.show', compact('pelatih'));
     }
 
     public function edit(User $pelatih)
     {
-        // Ensure this is a pelatih user
         if ($pelatih->role !== 'pelatih') {
             abort(404);
         }
 
-        $pelatih->load('pelatihProfile');
-        return view('admin.pelatih.edit', compact('pelatih'));
+        $pelatih->load(['pelatihProfile.tingkats']);
+        $tingkats = Tingkat::orderBy('urutan')->get();
+        $assignedTingkatIds = $pelatih->pelatihProfile?->tingkats->pluck('id')->all() ?? [];
+
+        return view('admin.pelatih.edit', compact('pelatih', 'tingkats', 'assignedTingkatIds'));
     }
 
     public function update(Request $request, User $pelatih)
     {
-        // Ensure this is a pelatih user
         if ($pelatih->role !== 'pelatih') {
             abort(404);
         }
@@ -82,6 +88,8 @@ class PelatihController extends Controller
             'email' => 'required|email|unique:users,email,' . $pelatih->id,
             'no_hp' => 'required|string|max:15',
             'alamat' => 'required|string',
+            'tingkat_ids' => 'nullable|array',
+            'tingkat_ids.*' => 'exists:tingkat,id',
         ]);
 
         $pelatih->update([
@@ -89,7 +97,7 @@ class PelatihController extends Controller
             'email' => $data['email'],
         ]);
 
-        $pelatih->pelatihProfile()->updateOrCreate(
+        $profile = $pelatih->pelatihProfile()->updateOrCreate(
             ['user_id' => $pelatih->id],
             [
                 'nama_lengkap' => $data['name'],
@@ -98,17 +106,19 @@ class PelatihController extends Controller
             ]
         );
 
+        $profile->tingkats()->sync($data['tingkat_ids'] ?? []);
+
         return redirect()->route('admin.pelatih.index')->with('success', 'Pelatih berhasil diperbarui.');
     }
 
     public function destroy(User $pelatih)
     {
-        // Ensure this is a pelatih user
         if ($pelatih->role !== 'pelatih') {
             abort(404);
         }
 
         if ($pelatih->pelatihProfile) {
+            $pelatih->pelatihProfile->tingkats()->detach();
             $pelatih->pelatihProfile->delete();
         }
 

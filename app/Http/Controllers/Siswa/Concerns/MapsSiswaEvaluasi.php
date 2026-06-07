@@ -50,6 +50,9 @@ trait MapsSiswaEvaluasi
         $statusKelulusan = $evaluasi->status_kelulusan ?? '';
 
         return [
+            'evaluasi_id' => $evaluasi->id,
+            'tingkat_id' => $evaluasi->tingkat_id,
+            'keputusan' => $evaluasi->status,
             'tahun_periode' => $evaluasi->tahun_periode ?? '-',
             'tingkat_nama' => $tingkat?->nama_tingkat ?? '-',
             'jenis_penilaian' => $evaluasi->rekap_nilai_ujian_id ? 'Ujian' : 'Harian',

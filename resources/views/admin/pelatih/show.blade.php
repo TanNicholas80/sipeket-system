@@ -61,10 +61,21 @@
                             </dd>
 
                             <dt class="col-sm-3">No HP</dt>
-                            <dd class="col-sm-9">{{ $pelatih->no_hp ? '+62' . ltrim(ltrim($pelatih->no_hp, '+62'), '0') : 'Tidak ada no HP' }}</dd>
+                            <dd class="col-sm-9">{{ $pelatih->pelatihProfile?->no_hp ?: 'Tidak ada no HP' }}</dd>
 
                             <dt class="col-sm-3">Alamat</dt>
-                            <dd class="col-sm-9">{{ $pelatih->alamat ?: 'Tidak ada alamat' }}</dd>
+                            <dd class="col-sm-9">{{ $pelatih->pelatihProfile?->alamat ?: 'Tidak ada alamat' }}</dd>
+
+                            <dt class="col-sm-3">Hak Akses Tingkatan</dt>
+                            <dd class="col-sm-9">
+                                @if($pelatih->pelatihProfile?->tingkats?->isNotEmpty())
+                                    @foreach($pelatih->pelatihProfile->tingkats as $tingkat)
+                                        <span class="badge badge-info mr-1 mb-1">{{ $tingkat->nama_tingkat }}</span>
+                                    @endforeach
+                                @else
+                                    <span class="badge badge-success">Semua Tingkatan (Akses Penuh)</span>
+                                @endif
+                            </dd>
 
                             <dt class="col-sm-3">Dibuat Pada</dt>
                             <dd class="col-sm-9">{{ $pelatih->created_at->format('d M Y H:i') }}</dd>

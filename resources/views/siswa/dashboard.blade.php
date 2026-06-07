@@ -58,6 +58,28 @@
             </div>
         </div>
 
+        @if($hasPendingPengajuan)
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    Anda memiliki pengajuan mengulang tingkat yang menunggu persetujuan pelatih.
+                    <a href="{{ route('siswa.evaluasi') }}" class="alert-link">Lihat di Hasil Evaluasi</a>
+                </div>
+            </div>
+        </div>
+        @elseif($isInMandatoryRepeat ?? false)
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    <i class="fas fa-lock mr-1"></i>
+                    Anda sedang <strong>mengulang wajib</strong> tingkat {{ $tingkatSaatIni }}.
+                    Selesaikan evaluasi ulang terlebih dahulu — pengajuan pengulangan sukarela belum tersedia.
+                    <a href="{{ route('siswa.evaluasi') }}" class="alert-link">Lihat Hasil Evaluasi</a>
+                </div>
+            </div>
+        </div>
+        @endif
+
         @if($evaluasiTerakhir)
         <div class="row">
             <div class="col-12">

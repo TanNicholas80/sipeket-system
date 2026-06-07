@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\EvaluasiTingkat;
 use App\Models\MateriLatihan;
 use App\Models\NilaiUjianMateri;
 use App\Models\NilaiUjianPenguji;
 use App\Models\RekapNilaiUjian;
+use App\Models\Tingkat;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -13,8 +15,16 @@ class RekapNilaiUjianService
 {
     public const PENGUJI_COUNT = 3;
 
+    public const MATERI_UJIAN_LABEL = 'Ujian';
+
     public function getMateriMasterForTingkat(int $tingkatId): Collection
     {
+        $tingkat = Tingkat::find($tingkatId);
+
+        if ($tingkat && $tingkat->jenis_penilaian === 'ujian') {
+            return collect([(object) ['id' => 0, 'nama' => self::MATERI_UJIAN_LABEL, 'tingkat_id' => $tingkatId]]);
+        }
+
         return MateriLatihan::where('tingkat_id', $tingkatId)
             ->orderBy('nama')
             ->get();
@@ -171,8 +181,10 @@ class RekapNilaiUjianService
         int $siswaId,
         int $tingkatId,
         string $tahunPeriode,
-        string $materiLatihan
+        ?string $materiLatihan = null
     ): array {
+        $materiLatihan = $materiLatihan ?? self::MATERI_UJIAN_LABEL;
+
         $rows = NilaiUjianPenguji::where('siswa_id', $siswaId)
             ->where('tingkat_id', $tingkatId)
             ->where('tahun_periode', $tahunPeriode)
@@ -192,5 +204,30 @@ class RekapNilaiUjianService
         }
 
         return $scores;
+    }
+
+    public function hasCompleteUjian(int $siswaId, int $tingkatId, string $tahunPeriode): bool
+    {
+        $count = NilaiUjianPenguji::where('siswa_id', $siswaId)
+            ->where('tingkat_id', $tingkatId)
+            ->where('tahun_periode', $tahunPeriode)
+            ->where('materi_latihan', self::MATERI_UJIAN_LABEL)
+            ->count();
+
+        return $count >= self::PENGUJI_COUNT;
+    }
+
+    public function canInputUjian(int $siswaId, int $tingkatId, string $tahunPeriode): bool
+    {
+        if (!$this->hasCompleteUjian($siswaId, $tingkatId, $tahunPeriode)) {
+            return true;
+        }
+
+        $evaluasi = EvaluasiTingkat::where('siswa_id', $siswaId)
+            ->where('tingkat_id', $tingkatId)
+            ->where('tahun_periode', $tahunPeriode)
+            ->first();
+
+        return $evaluasi && $evaluasi->status === EvaluasiTingkat::STATUS_TIDAK_NAIK;
     }
 }

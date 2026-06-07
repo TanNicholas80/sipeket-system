@@ -51,6 +51,17 @@
             </div>
             <!-- /.col -->
 
+            <div class="col-12 col-sm-6 col-md-4">
+                <div class="info-box mb-3">
+                    <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-redo"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Pengajuan Mengulang Pending</span>
+                        <span class="info-box-number">{{ $totalPengajuanPending ?? 0 }}</span>
+                    </div>
+                </div>
+            </div>
+            <!-- /.col -->
+
             <!-- fix for small devices only -->
             <div class="clearfix hidden-md-up"></div>
             <!-- /.col -->

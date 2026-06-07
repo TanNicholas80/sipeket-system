@@ -9,7 +9,7 @@
             <div class="card">
                 <div class="card-header">
                     <h4>Laporan</h4>
-                    <p class="mb-0">Pilih laporan yang ingin dicetak atau dilihat.</p>
+                    <p class="mb-0">Unduh laporan dalam format Excel.</p>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -17,8 +17,10 @@
                             <div class="card h-100 border-primary">
                                 <div class="card-body">
                                     <h5 class="card-title">Cetak Data Siswa</h5>
-                                    <p class="card-text">Akses data siswa dan gunakan fitur cetak pada halaman daftar siswa.</p>
-                                    <a href="{{ route('admin.siswa.index') }}" class="btn btn-primary">Buka Data Siswa</a>
+                                    <p class="card-text">Unduh ringkasan data semua siswa dalam format Excel.</p>
+                                    <a href="{{ route('admin.laporan.export.siswa') }}" class="btn btn-primary">
+                                        <i class="fas fa-file-excel"></i> Download Excel
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -26,8 +28,10 @@
                             <div class="card h-100 border-success">
                                 <div class="card-body">
                                     <h5 class="card-title">Cetak Hasil Evaluasi</h5>
-                                    <p class="card-text">Lihat dan cetak hasil evaluasi siswa dari halaman laporan evaluasi.</p>
-                                    <a href="{{ route('admin.laporan.evaluasi') }}" class="btn btn-success">Lihat Laporan Evaluasi</a>
+                                    <p class="card-text">Unduh ringkasan hasil evaluasi kenaikan tingkat semua siswa.</p>
+                                    <a href="{{ route('admin.laporan.export.evaluasi') }}" class="btn btn-success">
+                                        <i class="fas fa-file-excel"></i> Download Excel
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -35,8 +39,10 @@
                             <div class="card h-100 border-info">
                                 <div class="card-body">
                                     <h5 class="card-title">Riwayat Kenaikan Tingkat</h5>
-                                    <p class="card-text">Tampilkan riwayat kenaikan tingkat dan cetak dokumen riwayat.</p>
-                                    <a href="{{ route('admin.laporan.riwayat') }}" class="btn btn-info">Buka Riwayat Tingkat</a>
+                                    <p class="card-text">Unduh riwayat kenaikan dan pengulangan tingkat semua siswa.</p>
+                                    <a href="{{ route('admin.laporan.export.riwayat') }}" class="btn btn-info">
+                                        <i class="fas fa-file-excel"></i> Download Excel
+                                    </a>
                                 </div>
                             </div>
                         </div>

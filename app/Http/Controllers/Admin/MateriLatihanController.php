@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MateriLatihan;
 use App\Models\Tingkat;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class MateriLatihanController extends Controller
 {
@@ -17,7 +18,7 @@ class MateriLatihanController extends Controller
 
     public function create()
     {
-        $tingkats = Tingkat::orderBy('urutan')->get();
+        $tingkats = Tingkat::where('jenis_penilaian', 'harian')->orderBy('urutan')->get();
         return view('admin.materi-latihan.create', compact('tingkats'));
     }
 
@@ -26,7 +27,12 @@ class MateriLatihanController extends Controller
         $data = $request->validate([
             'nama' => 'required|string|max:255|unique:materi_latihan,nama',
             'deskripsi' => 'nullable|string',
-            'tingkat_id' => 'required|exists:tingkat,id',
+            'tingkat_id' => [
+                'required',
+                Rule::exists('tingkat', 'id')->where(fn ($query) => $query->where('jenis_penilaian', 'harian')),
+            ],
+        ], [
+            'tingkat_id.exists' => 'Materi latihan hanya dapat ditambahkan untuk tingkat penilaian harian.',
         ]);
 
         MateriLatihan::create($data);
@@ -36,7 +42,7 @@ class MateriLatihanController extends Controller
 
     public function edit(MateriLatihan $materiLatihan)
     {
-        $tingkats = Tingkat::orderBy('urutan')->get();
+        $tingkats = Tingkat::where('jenis_penilaian', 'harian')->orderBy('urutan')->get();
         return view('admin.materi-latihan.edit', compact('materiLatihan', 'tingkats'));
     }
 
@@ -45,7 +51,12 @@ class MateriLatihanController extends Controller
         $data = $request->validate([
             'nama' => 'required|string|max:255|unique:materi_latihan,nama,' . $materiLatihan->id,
             'deskripsi' => 'nullable|string',
-            'tingkat_id' => 'required|exists:tingkat,id',
+            'tingkat_id' => [
+                'required',
+                Rule::exists('tingkat', 'id')->where(fn ($query) => $query->where('jenis_penilaian', 'harian')),
+            ],
+        ], [
+            'tingkat_id.exists' => 'Materi latihan hanya dapat ditambahkan untuk tingkat penilaian harian.',
         ]);
 
         $materiLatihan->update($data);

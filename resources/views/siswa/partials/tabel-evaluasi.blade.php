@@ -9,10 +9,18 @@
                 <th>Status Kelulusan</th>
                 <th>Keputusan</th>
                 <th>Tanggal Evaluasi</th>
+                <th>Aksi</th>
             </tr>
         </thead>
         <tbody>
             @forelse($evaluasiRows as $row)
+            @php
+                $isEligibleRow = isset($eligibleTingkatId)
+                    && (int) $row['tingkat_id'] === (int) $eligibleTingkatId
+                    && ($row['keputusan'] ?? '') === \App\Models\EvaluasiTingkat::STATUS_NAIK;
+                $isPendingRow = $pendingPengajuan
+                    && (int) $pendingPengajuan->tingkat_id === (int) $row['tingkat_id'];
+            @endphp
             <tr>
                 <td>{{ $row['tahun_periode'] }}</td>
                 <td>{{ $row['tingkat_nama'] }}</td>
@@ -40,10 +48,21 @@
                     @endif
                 </td>
                 <td>{{ $row['tanggal_evaluasi'] }}</td>
+                <td>
+                    @if($isPendingRow)
+                        <span class="badge badge-warning">Menunggu Persetujuan</span>
+                    @elseif($isEligibleRow && ($canSubmitPengajuan['eligible'] ?? false))
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#modalAjukanMengulang">
+                            <i class="fas fa-redo"></i> Ajukan Mengulang
+                        </button>
+                    @else
+                        <span class="text-muted">-</span>
+                    @endif
+                </td>
             </tr>
             @empty
             <tr>
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="8" class="text-center text-muted py-4">
                     Belum ada hasil evaluasi kenaikan tingkat.
                 </td>
             </tr>

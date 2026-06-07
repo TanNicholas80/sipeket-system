@@ -67,4 +67,9 @@ class Siswa extends Model
     {
         return $this->hasMany(RiwayatTingkat::class);
     }
+
+    public function pengajuanMengulang()
+    {
+        return $this->hasMany(PengajuanMengulangTingkat::class);
+    }
 }
