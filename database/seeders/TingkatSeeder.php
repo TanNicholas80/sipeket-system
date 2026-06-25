@@ -14,8 +14,8 @@ class TingkatSeeder extends Seeder
     public function run(): void
     {
         $ambang = [
-            'ambang_tidak_lulus' => 59,
-            'ambang_pertimbangan_min' => 60,
+            'ambang_tidak_lulus' => 69,
+            'ambang_pertimbangan_min' => 70,
             'ambang_pertimbangan_max' => 74,
         ];
 
