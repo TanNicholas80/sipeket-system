@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,8 +22,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Helper function for phone number formatting
-        \Blade::directive('formatPhone', function ($expression) {
+        Blade::directive('formatPhone', function ($expression) {
             return "<?php echo '+62' . ltrim(ltrim($expression, '+62'), '0'); ?>";
         });
+
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
     }
 }
