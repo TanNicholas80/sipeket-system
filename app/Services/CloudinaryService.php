@@ -2,15 +2,37 @@
 
 namespace App\Services;
 
+use Cloudinary\Cloudinary;
 use Illuminate\Contracts\Filesystem\Cloud;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 class CloudinaryService
 {
-    public function upload(UploadedFile $file, string $folder): string
+    /**
+     * @return array{path: string, url: string}
+     */
+    public function upload(UploadedFile $file, string $folder): array
     {
-        return $file->store($folder, 'cloudinary');
+        $cloudinary = app(Cloudinary::class);
+
+        $result = $cloudinary->uploadApi()->upload($file->getRealPath(), [
+            'folder' => $folder,
+            'resource_type' => 'auto',
+            'use_filename' => false,
+            'unique_filename' => true,
+        ]);
+
+        $path = $result['public_id'];
+
+        if (! empty($result['format']) && ! str_ends_with($path, '.'.$result['format'])) {
+            $path .= '.'.$result['format'];
+        }
+
+        return [
+            'path' => $path,
+            'url' => $result['secure_url'],
+        ];
     }
 
     public function delete(?string $publicId): void

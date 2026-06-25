@@ -41,7 +41,7 @@ class PendaftaranController extends Controller
             'tingkat_id.in' => 'Tingkat yang dipilih tidak valid. Pilih Tingkat Pradasar, Tingkat Dasar 1.1, atau Tingkat Lanjut.',
         ]);
 
-        $filePath = app(CloudinaryService::class)
+        $upload = app(CloudinaryService::class)
             ->upload($request->file('akta_kelahiran'), 'akta_kelahiran');
 
         Pendaftaran::create([
@@ -53,7 +53,8 @@ class PendaftaranController extends Controller
             'nama_panggilan' => $request->nama_panggilan,
             'asal_sekolah' => $request->asal_sekolah,
             'kontak_aktif' => '+62'.$request->kontak_aktif,
-            'akta_kelahiran' => $filePath,
+            'akta_kelahiran' => $upload['path'],
+            'akta_kelahiran_url' => $upload['url'],
             'alamat' => $request->alamat,
             'tingkat_id' => $request->tingkat_id,
             'nama_orangtua' => $request->nama_orangtua,

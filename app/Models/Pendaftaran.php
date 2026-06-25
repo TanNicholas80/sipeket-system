@@ -22,6 +22,7 @@ class Pendaftaran extends Model
         'asal_sekolah',
         'kontak_aktif',
         'akta_kelahiran',
+        'akta_kelahiran_url',
         'alamat',
         'tingkat_id',
         'nama_orangtua',
@@ -42,6 +43,10 @@ class Pendaftaran extends Model
 
     public function getAktaKelahiranUrlAttribute(): ?string
     {
+        if ($this->attributes['akta_kelahiran_url'] ?? null) {
+            return $this->attributes['akta_kelahiran_url'];
+        }
+
         return $this->akta_kelahiran
             ? app(CloudinaryService::class)->url($this->akta_kelahiran)
             : null;

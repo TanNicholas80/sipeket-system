@@ -110,7 +110,7 @@ use Illuminate\Support\Facades\Storage;
                                             data-tanggal_daftar="{{ optional($item->created_at)->format('d-m-Y') }}"
                                             data-status="{{ $item->status }}"
                                             data-catatan_admin="{{ $item->catatan_admin }}"
-                                            data-akta="{{ $item->akta_kelahiran ? route('admin.pendaftaran.akta', $item->id) : '' }}"
+                                            data-akta="{{ $item->akta_kelahiran_url ?: ($item->akta_kelahiran ? route('admin.pendaftaran.akta', $item->id) : '') }}"
                                             data-is-pending="{{ $item->status === 'pending' ? '1' : '0' }}">
                                             <i class="fas fa-info-circle"></i> Detail
                                         </button>

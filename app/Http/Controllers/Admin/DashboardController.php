@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Pendaftaran;
 use App\Models\Siswa;
 use App\Models\User;
-use App\Services\CloudinaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -119,11 +118,11 @@ class DashboardController extends Controller
 
     public function showAkta(Pendaftaran $pendaftaran)
     {
-        if (! $pendaftaran->akta_kelahiran) {
+        $url = $pendaftaran->akta_kelahiran_url;
+
+        if (! $url) {
             abort(404);
         }
-
-        $url = app(CloudinaryService::class)->url($pendaftaran->akta_kelahiran);
 
         return redirect()->away($url);
     }
