@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Pendaftaran;
 use App\Models\Tingkat;
+use App\Services\CloudinaryService;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class PendaftaranController extends Controller
@@ -12,6 +13,7 @@ class PendaftaranController extends Controller
     public function create()
     {
         $tingkat = Tingkat::allowedForPendaftaran();
+
         return view('pendaftaran.create', compact('tingkat'));
     }
 
@@ -39,8 +41,8 @@ class PendaftaranController extends Controller
             'tingkat_id.in' => 'Tingkat yang dipilih tidak valid. Pilih Tingkat Pradasar, Tingkat Dasar 1.1, atau Tingkat Lanjut.',
         ]);
 
-        $filePath = $request->file('akta_kelahiran')
-            ->store('akta_kelahiran', 'public');
+        $filePath = app(CloudinaryService::class)
+            ->upload($request->file('akta_kelahiran'), 'akta_kelahiran');
 
         Pendaftaran::create([
             'nama_lengkap' => $request->nama_lengkap,
@@ -50,16 +52,16 @@ class PendaftaranController extends Controller
             'jenis_kelamin' => $request->jenis_kelamin,
             'nama_panggilan' => $request->nama_panggilan,
             'asal_sekolah' => $request->asal_sekolah,
-            'kontak_aktif' => '+62' . $request->kontak_aktif,
+            'kontak_aktif' => '+62'.$request->kontak_aktif,
             'akta_kelahiran' => $filePath,
             'alamat' => $request->alamat,
             'tingkat_id' => $request->tingkat_id,
             'nama_orangtua' => $request->nama_orangtua,
             'pekerjaan_orangtua' => $request->pekerjaan_orangtua,
-            'kontak_orangtua' => '+62' . $request->kontak_orangtua,
+            'kontak_orangtua' => '+62'.$request->kontak_orangtua,
             'alamat_orangtua' => $request->alamat_orangtua,
             'tanggal_daftar' => now(),
-            'status' => 'pending'
+            'status' => 'pending',
         ]);
 
         return redirect()->back()

@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Services\CloudinaryService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Pendaftaran extends Model
 {
@@ -29,8 +30,22 @@ class Pendaftaran extends Model
         'alamat_orangtua',
         'tanggal_daftar',
         'status',
-        'catatan_admin'
+        'catatan_admin',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Pendaftaran $pendaftaran) {
+            app(CloudinaryService::class)->delete($pendaftaran->akta_kelahiran);
+        });
+    }
+
+    public function getAktaKelahiranUrlAttribute(): ?string
+    {
+        return $this->akta_kelahiran
+            ? app(CloudinaryService::class)->url($this->akta_kelahiran)
+            : null;
+    }
 
     public function tingkat()
     {

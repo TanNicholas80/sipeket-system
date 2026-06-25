@@ -3,15 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Pendaftaran;
 use App\Models\Siswa;
 use App\Models\User;
-use App\Models\Pendaftaran;
+use App\Services\CloudinaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
 
 class DashboardController extends Controller
 {
@@ -71,14 +70,14 @@ class DashboardController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'username' => ['required','string','max:50', Rule::unique('users','username')->ignore($user->id)],
-            'email' => ['required','email','max:255', Rule::unique('users','email')->ignore($user->id)],
+            'username' => ['required', 'string', 'max:50', Rule::unique('users', 'username')->ignore($user->id)],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'password' => 'nullable|string|min:6|confirmed',
             'role' => 'required|string|in:admin,pelatih,siswa',
             'status' => 'required|string|in:aktif,nonaktif',
         ]);
 
-        if (!empty($data['password'])) {
+        if (! empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         } else {
             unset($data['password']);
@@ -120,17 +119,19 @@ class DashboardController extends Controller
 
     public function showAkta(Pendaftaran $pendaftaran)
     {
-        if (! $pendaftaran->akta_kelahiran || ! Storage::disk('public')->exists($pendaftaran->akta_kelahiran)) {
+        if (! $pendaftaran->akta_kelahiran) {
             abort(404);
         }
 
-        return response()->file(storage_path('app/public/' . $pendaftaran->akta_kelahiran));
+        $url = app(CloudinaryService::class)->url($pendaftaran->akta_kelahiran);
+
+        return redirect()->away($url);
     }
 
     public function getCredentials(Pendaftaran $pendaftaran)
     {
         $user = User::where('email', $pendaftaran->email)->first();
-        
+
         if (! $user) {
             return response()->json(['credentials' => null], 404);
         }
@@ -139,7 +140,7 @@ class DashboardController extends Controller
             'credentials' => [
                 'username' => $user->username,
                 'password' => '123456', // Default password
-            ]
+            ],
         ]);
     }
 
@@ -152,9 +153,9 @@ class DashboardController extends Controller
 
         if ($request->status === 'diterima') {
             // Generate username and password for student
-            $username = strtolower(str_replace(' ', '', substr($pendaftaran->nama_lengkap, 0, 3))) . rand(1000, 9999);
+            $username = strtolower(str_replace(' ', '', substr($pendaftaran->nama_lengkap, 0, 3))).rand(1000, 9999);
             $password = '123456';
-            
+
             // Create user account for student
             $user = User::create([
                 'name' => $pendaftaran->nama_lengkap,
@@ -162,7 +163,7 @@ class DashboardController extends Controller
                 'email' => $pendaftaran->email,
                 'password' => Hash::make($password),
                 'role' => 'siswa',
-                'status' => 'aktif'
+                'status' => 'aktif',
             ]);
 
             Siswa::create([
@@ -195,7 +196,7 @@ class DashboardController extends Controller
                     'credentials' => [
                         'username' => $username,
                         'password' => $password,
-                    ]
+                    ],
                 ]);
             }
         } else {
