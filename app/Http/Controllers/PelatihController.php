@@ -8,7 +8,6 @@ use App\Models\NilaiHarian;
 use App\Models\NilaiUjianMateri;
 use App\Models\NilaiUjianPenguji;
 use App\Models\PengajuanMengulangTingkat;
-use App\Models\Pendaftaran;
 use App\Models\Pelatih;
 use App\Models\RekapNilaiHarian;
 use App\Models\RekapNilaiUjian;
@@ -48,14 +47,10 @@ class PelatihController extends Controller
                 ->whereHas('siswaProfile', fn ($q) => $q->whereIn('tingkat_id', $allowedIds))
                 ->count();
 
-        $totalPendaftar = Pendaftaran::count();
-        $pendaftarTerbaru = Pendaftaran::with('tingkat')->latest()->take(5)->get();
         $totalPengajuanPending = $this->pengajuanMengulangService->countPendingForPelatih($pelatih);
 
         return view('pelatih.dashboard', compact(
             'totalSiswaAktif',
-            'totalPendaftar',
-            'pendaftarTerbaru',
             'accessibleTingkats',
             'totalPengajuanPending'
         ));
