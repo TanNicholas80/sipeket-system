@@ -47,6 +47,13 @@
                         @enderror
                     </div>
                     <div class="form-group">
+                        <label for="urutan">Urutan</label>
+                        <input type="number" class="form-control @error('urutan') is-invalid @enderror" id="urutan" name="urutan" value="{{ old('urutan', $materiLatihan->urutan) }}" min="1" required>
+                        @error('urutan')
+                        <span class="invalid-feedback">{{ $message }}</span>
+                        @enderror
+                    </div>
+                    <div class="form-group">
                         <label for="deskripsi">Deskripsi</label>
                         <textarea class="form-control @error('deskripsi') is-invalid @enderror" id="deskripsi" name="deskripsi" rows="3">{{ old('deskripsi', $materiLatihan->deskripsi) }}</textarea>
                         @error('deskripsi')

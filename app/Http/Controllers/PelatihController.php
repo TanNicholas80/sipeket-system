@@ -115,7 +115,7 @@ class PelatihController extends Controller
 
         if ($canSelectMateri) {
             $materiLatihans = MateriLatihan::where('tingkat_id', $tingkat_id)
-                ->orderBy('nama')
+                ->orderBy('urutan')
                 ->get();
         }
 
@@ -326,7 +326,7 @@ class PelatihController extends Controller
 
         if ($showRekap) {
             $materiMaster = $this->rekapUjianService->getMateriMasterForTingkat((int) $tingkat_id);
-            $materiLabel = RekapNilaiUjianService::MATERI_UJIAN_LABEL;
+            $materiLabel = $this->rekapUjianService->getMateriLabelForTingkat((int) $tingkat_id);
 
             $siswaList = User::where('role', 'siswa')
                 ->with(['siswaProfile.tingkat'])
@@ -395,7 +395,7 @@ class PelatihController extends Controller
         $tingkat_id = (int) $validated['tingkat_id'];
         $tahunPeriode = TahunPeriode::findOrFail($validated['tahun_periode_id']);
         $siswa = User::with('siswaProfile')->findOrFail($validated['user_id']);
-        $materiLabel = RekapNilaiUjianService::MATERI_UJIAN_LABEL;
+        $materiLabel = $this->rekapUjianService->getMateriLabelForTingkat($tingkat_id);
 
         if (!$siswa->siswaProfile) {
             return back()->with('error', 'Profil siswa tidak ditemukan.');

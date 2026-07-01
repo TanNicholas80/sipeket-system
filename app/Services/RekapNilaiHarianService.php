@@ -13,7 +13,7 @@ class RekapNilaiHarianService
     public function getMateriMasterForTingkat(int $tingkatId): Collection
     {
         return MateriLatihan::where('tingkat_id', $tingkatId)
-            ->orderBy('nama')
+            ->orderBy('urutan')
             ->get();
     }
 

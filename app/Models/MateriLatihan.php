@@ -15,6 +15,7 @@ class MateriLatihan extends Model
         'nama',
         'deskripsi',
         'tingkat_id',
+        'urutan',
     ];
 
     public function tingkat()

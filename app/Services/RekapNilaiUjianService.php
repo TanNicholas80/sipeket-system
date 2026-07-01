@@ -17,16 +17,39 @@ class RekapNilaiUjianService
 
     public const MATERI_UJIAN_LABEL = 'Ujian';
 
+    public function getMateriLabelForTingkat(int $tingkatId): string
+    {
+        $tingkat = Tingkat::find($tingkatId);
+        if ($tingkat && $tingkat->jenis_penilaian === 'ujian') {
+            $lastMateri = MateriLatihan::whereHas('tingkat', function ($query) use ($tingkat) {
+                $query->where('jenis_penilaian', 'harian')
+                    ->where('urutan', '<', $tingkat->urutan);
+            })
+            ->get()
+            ->sortByDesc(function ($m) {
+                return [$m->tingkat->urutan, $m->urutan];
+            })
+            ->first();
+
+            if ($lastMateri) {
+                return $lastMateri->nama;
+            }
+        }
+
+        return self::MATERI_UJIAN_LABEL;
+    }
+
     public function getMateriMasterForTingkat(int $tingkatId): Collection
     {
         $tingkat = Tingkat::find($tingkatId);
 
         if ($tingkat && $tingkat->jenis_penilaian === 'ujian') {
-            return collect([(object) ['id' => 0, 'nama' => self::MATERI_UJIAN_LABEL, 'tingkat_id' => $tingkatId]]);
+            $materiLabel = $this->getMateriLabelForTingkat($tingkatId);
+            return collect([(object) ['id' => 0, 'nama' => $materiLabel, 'tingkat_id' => $tingkatId]]);
         }
 
         return MateriLatihan::where('tingkat_id', $tingkatId)
-            ->orderBy('nama')
+            ->orderBy('urutan')
             ->get();
     }
 
@@ -183,7 +206,7 @@ class RekapNilaiUjianService
         string $tahunPeriode,
         ?string $materiLatihan = null
     ): array {
-        $materiLatihan = $materiLatihan ?? self::MATERI_UJIAN_LABEL;
+        $materiLatihan = $materiLatihan ?? $this->getMateriLabelForTingkat($tingkatId);
 
         $rows = NilaiUjianPenguji::where('siswa_id', $siswaId)
             ->where('tingkat_id', $tingkatId)
@@ -208,10 +231,11 @@ class RekapNilaiUjianService
 
     public function hasCompleteUjian(int $siswaId, int $tingkatId, string $tahunPeriode): bool
     {
+        $materiLabel = $this->getMateriLabelForTingkat($tingkatId);
         $count = NilaiUjianPenguji::where('siswa_id', $siswaId)
             ->where('tingkat_id', $tingkatId)
             ->where('tahun_periode', $tahunPeriode)
-            ->where('materi_latihan', self::MATERI_UJIAN_LABEL)
+            ->where('materi_latihan', $materiLabel)
             ->count();
 
         return $count >= self::PENGUJI_COUNT;

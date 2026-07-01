@@ -12,12 +12,14 @@ return new class extends Migration {
             $table->id();
             $table->string('nama')->unique();
             $table->text('deskripsi')->nullable();
+            $table->integer('urutan')->default(1);
             $table->timestamps();
         });
 
         DB::table('materi_latihan')->insertOrIgnore([
             'nama' => 'Latihan Kuda-Kuda',
             'deskripsi' => 'Materi dasar yang umum digunakan untuk evaluasi nilai harian.',
+            'urutan' => 1,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

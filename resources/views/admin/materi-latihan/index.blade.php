@@ -36,6 +36,7 @@
                         <table id="materiTable" class="table table-bordered table-striped">
                             <thead>
                                 <tr>
+                                    <th style="width: 80px;">Urutan</th>
                                     <th>Nama Materi</th>
                                     <th>Tingkat</th>
                                     <th>Deskripsi</th>
@@ -45,6 +46,7 @@
                             <tbody>
                                 @foreach($materis as $materi)
                                 <tr>
+                                    <td>{{ $materi->urutan }}</td>
                                     <td>{{ $materi->nama }}</td>
                                     <td>{{ $materi->tingkat?->nama_tingkat ?? '-' }}</td>
                                     <td>{{ $materi->deskripsi }}</td>

@@ -12,7 +12,7 @@ class MateriLatihanController extends Controller
 {
     public function index()
     {
-        $materis = MateriLatihan::with('tingkat')->orderBy('nama')->get();
+        $materis = MateriLatihan::with('tingkat')->orderBy('urutan')->get();
         return view('admin.materi-latihan.index', compact('materis'));
     }
 
@@ -27,6 +27,7 @@ class MateriLatihanController extends Controller
         $data = $request->validate([
             'nama' => 'required|string|max:255|unique:materi_latihan,nama',
             'deskripsi' => 'nullable|string',
+            'urutan' => 'required|integer|min:1',
             'tingkat_id' => [
                 'required',
                 Rule::exists('tingkat', 'id')->where(fn ($query) => $query->where('jenis_penilaian', 'harian')),
@@ -51,6 +52,7 @@ class MateriLatihanController extends Controller
         $data = $request->validate([
             'nama' => 'required|string|max:255|unique:materi_latihan,nama,' . $materiLatihan->id,
             'deskripsi' => 'nullable|string',
+            'urutan' => 'required|integer|min:1',
             'tingkat_id' => [
                 'required',
                 Rule::exists('tingkat', 'id')->where(fn ($query) => $query->where('jenis_penilaian', 'harian')),
