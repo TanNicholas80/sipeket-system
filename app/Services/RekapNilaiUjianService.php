@@ -21,15 +21,10 @@ class RekapNilaiUjianService
     {
         $tingkat = Tingkat::find($tingkatId);
         if ($tingkat && $tingkat->jenis_penilaian === 'ujian') {
-            $lastMateri = MateriLatihan::whereHas('tingkat', function ($query) use ($tingkat) {
-                $query->where('jenis_penilaian', 'harian')
-                    ->where('urutan', '<', $tingkat->urutan);
-            })
-            ->get()
-            ->sortByDesc(function ($m) {
-                return [$m->tingkat->urutan, $m->urutan];
-            })
-            ->first();
+            $lastMateri = MateriLatihan::where('tingkat_id', $tingkatId)
+                ->orderBy('urutan')
+                ->get()
+                ->last();
 
             if ($lastMateri) {
                 return $lastMateri->nama;
@@ -41,16 +36,18 @@ class RekapNilaiUjianService
 
     public function getMateriMasterForTingkat(int $tingkatId): Collection
     {
-        $tingkat = Tingkat::find($tingkatId);
-
-        if ($tingkat && $tingkat->jenis_penilaian === 'ujian') {
-            $materiLabel = $this->getMateriLabelForTingkat($tingkatId);
-            return collect([(object) ['id' => 0, 'nama' => $materiLabel, 'tingkat_id' => $tingkatId]]);
-        }
-
         return MateriLatihan::where('tingkat_id', $tingkatId)
             ->orderBy('urutan')
             ->get();
+    }
+
+    public function isMateriUjianTerakhir(int $tingkatId, string $materiName): bool
+    {
+        $materis = MateriLatihan::where('tingkat_id', $tingkatId)->orderBy('urutan')->get();
+        if ($materis->isEmpty()) {
+            return true;
+        }
+        return $materis->last()->nama === $materiName;
     }
 
     public function hitungRataPenguji(float $wiraga, float $wirama, float $wirasa): float
@@ -83,7 +80,12 @@ class RekapNilaiUjianService
 
         $pengujiTerisi = $pengujiRows->count();
         $rataList = $pengujiRows->pluck('rata_penguji')->map(fn ($v) => (float) $v)->all();
-        $nilaiFix = $this->hitungNilaiFix($rataList);
+        
+        if ($this->isMateriUjianTerakhir($tingkatId, $materiLatihan)) {
+            $nilaiFix = $this->hitungNilaiFix($rataList);
+        } else {
+            $nilaiFix = count($rataList) > 0 ? $rataList[0] : null;
+        }
 
         return NilaiUjianMateri::updateOrCreate(
             [

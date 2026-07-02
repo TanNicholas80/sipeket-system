@@ -18,7 +18,7 @@ class MateriLatihanController extends Controller
 
     public function create()
     {
-        $tingkats = Tingkat::where('jenis_penilaian', 'harian')->orderBy('urutan')->get();
+        $tingkats = Tingkat::orderBy('urutan')->get();
         return view('admin.materi-latihan.create', compact('tingkats'));
     }
 
@@ -30,10 +30,10 @@ class MateriLatihanController extends Controller
             'urutan' => 'required|integer|min:1',
             'tingkat_id' => [
                 'required',
-                Rule::exists('tingkat', 'id')->where(fn ($query) => $query->where('jenis_penilaian', 'harian')),
+                Rule::exists('tingkat', 'id')->where(fn ($query) => $query->whereIn('jenis_penilaian', ['harian', 'ujian'])),
             ],
         ], [
-            'tingkat_id.exists' => 'Materi latihan hanya dapat ditambahkan untuk tingkat penilaian harian.',
+            'tingkat_id.exists' => 'Tingkat yang dipilih tidak valid.',
         ]);
 
         MateriLatihan::create($data);
@@ -43,7 +43,7 @@ class MateriLatihanController extends Controller
 
     public function edit(MateriLatihan $materiLatihan)
     {
-        $tingkats = Tingkat::where('jenis_penilaian', 'harian')->orderBy('urutan')->get();
+        $tingkats = Tingkat::orderBy('urutan')->get();
         return view('admin.materi-latihan.edit', compact('materiLatihan', 'tingkats'));
     }
 
@@ -55,10 +55,10 @@ class MateriLatihanController extends Controller
             'urutan' => 'required|integer|min:1',
             'tingkat_id' => [
                 'required',
-                Rule::exists('tingkat', 'id')->where(fn ($query) => $query->where('jenis_penilaian', 'harian')),
+                Rule::exists('tingkat', 'id')->where(fn ($query) => $query->whereIn('jenis_penilaian', ['harian', 'ujian'])),
             ],
         ], [
-            'tingkat_id.exists' => 'Materi latihan hanya dapat ditambahkan untuk tingkat penilaian harian.',
+            'tingkat_id.exists' => 'Tingkat yang dipilih tidak valid.',
         ]);
 
         $materiLatihan->update($data);

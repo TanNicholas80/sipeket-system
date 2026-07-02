@@ -31,7 +31,7 @@
                         <select class="form-control @error('tingkat_id') is-invalid @enderror" id="tingkat_id" name="tingkat_id" required>
                             <option value="">- Pilih Tingkat -</option>
                             @foreach($tingkats as $tingkat)
-                            <option value="{{ $tingkat->id }}" {{ old('tingkat_id') == $tingkat->id ? 'selected' : '' }}>{{ $tingkat->nama_tingkat }}</option>
+                            <option value="{{ $tingkat->id }}" {{ old('tingkat_id') == $tingkat->id ? 'selected' : '' }}>{{ $tingkat->nama_tingkat }} ({{ ucfirst($tingkat->jenis_penilaian) }})</option>
                             @endforeach
                         </select>
                         @error('tingkat_id')
