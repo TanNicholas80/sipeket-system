@@ -101,6 +101,7 @@ use Illuminate\Support\Facades\Storage;
                                             data-jenis_kelamin="{{ $item->jenis_kelamin }}"
                                             data-nama_panggilan="{{ $item->nama_panggilan }}"
                                             data-asal_sekolah="{{ $item->asal_sekolah }}"
+                                            data-kelas="{{ $item->kelas }}"
                                             data-kontak_aktif="{{ $item->kontak_aktif }}"
                                             data-tingkat="{{ $item->tingkat->nama_tingkat ?? 'N/A' }}"
                                             data-nama_orangtua="{{ $item->nama_orangtua }}"
@@ -185,6 +186,10 @@ use Illuminate\Support\Facades\Storage;
                             <tr>
                                 <th>Asal Sekolah</th>
                                 <td id="detailAsalSekolah"></td>
+                            </tr>
+                            <tr>
+                                <th>Kelas</th>
+                                <td id="detailKelas"></td>
                             </tr>
                             <tr>
                                 <th>Kontak Aktif</th>
@@ -363,6 +368,7 @@ use Illuminate\Support\Facades\Storage;
                 document.getElementById('detailJenisKelamin').textContent = button.dataset.jenis_kelamin == 'L' ? 'Laki-laki' : (button.dataset.jenis_kelamin == 'P' ? 'Perempuan' : '-');
                 document.getElementById('detailNamaPanggilan').textContent = button.dataset.nama_panggilan || '-';
                 document.getElementById('detailAsalSekolah').textContent = button.dataset.asal_sekolah || '-';
+                document.getElementById('detailKelas').textContent = button.dataset.kelas || '-';
                 document.getElementById('detailKontakAktif').textContent = formatPhone(button.dataset.kontak_aktif);
                 document.getElementById('detailTingkat').textContent = button.dataset.tingkat || '-';
                 document.getElementById('detailNamaOrangtua').textContent = button.dataset.nama_orangtua || '-';
@@ -458,6 +464,36 @@ use Illuminate\Support\Facades\Storage;
                 });
         });
 
+        function buildAcceptanceMessage(nama, username, password) {
+            let message = `Halo *${nama}* 👋\n\n`;
+            message += `Selamat! Pendaftaran Anda di *Sanggar Tari Dharmo Yuwono* telah *DITERIMA* 🎉\n\n`;
+            message += `----------------------------------------\n`;
+            message += `🔐 *DATA AKUN & LOGIN*\n`;
+            message += `• *Username* : ${username}\n`;
+            message += `• *Password* : ${password}\n\n`;
+            message += `*Instruksi Login:*\n`;
+            message += `1. Buka website SIPEKET\n`;
+            message += `2. Pilih menu *Login*\n`;
+            message += `3. Masukkan username dan password di atas\n`;
+            message += `4. Klik Masuk\n\n`;
+            message += `----------------------------------------\n`;
+            message += `💳 *INFORMASI ADMINISTRASI*\n\n`;
+            message += `• *Biaya Pendaftaran* : Rp75.000\n\n`;
+            message += `• *SPP per bulan* :\n`;
+            message += `  - *Pradasar & Dasar 1.1* : Rp125.000/bulan (Rp100.000 iuran + Rp25.000 tabungan pentas tahunan)\n`;
+            message += `  - *Dasar 1.2 s.d. Terampil 2* : Rp100.000/bulan\n\n`;
+            message += `*Informasi Pembayaran:*\n`;
+            message += `1. *Transfer Bank*:\n`;
+            message += `   • *BNI* : 1443752132\n`;
+            message += `   • *a.n.* Patricia Alfiani Warin\n`;
+            message += `   _(Mohon kirimkan bukti transfer ke nomor WA Admin ini untuk proses konfirmasi)_\n\n`;
+            message += `2. *Tunai*:\n`;
+            message += `   • Pembayaran tunai dapat dilakukan langsung melalui *Bendahara Sanggar*.\n\n`;
+            message += `----------------------------------------\n`;
+            message += `Terima kasih dan selamat bergabung! 🙏✨`;
+            return message;
+        }
+
         whatsappButton.addEventListener('click', function() {
             const status = document.getElementById('detailStatus').textContent.trim();
 
@@ -477,17 +513,7 @@ use Illuminate\Support\Facades\Storage;
                     })
                     .then(data => {
                         if (data.credentials && data.credentials.username && data.credentials.password) {
-                            let message = `Halo ${currentName},\n\n`;
-                            message += `Selamat! Pendaftaran Anda di Sanggar Tari Dharmo Yuwono *DITERIMA*!\n\n`;
-                            message += `Berikut data login Anda:\n`;
-                            message += `Username: ${data.credentials.username}\n`;
-                            message += `Password: ${data.credentials.password}\n\n`;
-                            message += `Instruksi Login:\n`;
-                            message += `1. Buka website kami\n`;
-                            message += `2. Klik Login\n`;
-                            message += `3. Masukkan username dan password di atas\n`;
-                            message += `4. Klik Masuk\n\n`;
-                            message += `Terima kasih telah mendaftar!`;
+                            const message = buildAcceptanceMessage(currentName, data.credentials.username, data.credentials.password);
 
                             const phone = getPhoneForWhatsApp(currentPhone);
                             const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
@@ -542,17 +568,7 @@ use Illuminate\Support\Facades\Storage;
                         })
                         .then(data => {
                             if (data.credentials && data.credentials.username && data.credentials.password) {
-                                let message = `Halo ${nama},\n\n`;
-                                message += `Selamat! Pendaftaran Anda di Sanggar Tari Dharmo Yuwono *DITERIMA*!\n\n`;
-                                message += `Berikut data login Anda:\n`;
-                                message += `Username: ${data.credentials.username}\n`;
-                                message += `Password: ${data.credentials.password}\n\n`;
-                                message += `Instruksi Login:\n`;
-                                message += `1. Buka website kami\n`;
-                                message += `2. Klik Login\n`;
-                                message += `3. Masukkan username dan password di atas\n`;
-                                message += `4. Klik Masuk\n\n`;
-                                message += `Terima kasih telah mendaftar!`;
+                                const message = buildAcceptanceMessage(nama, data.credentials.username, data.credentials.password);
 
                                 const phone = getPhoneForWhatsApp(kontakAktif);
                                 const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;

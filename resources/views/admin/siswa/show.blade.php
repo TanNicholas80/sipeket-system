@@ -81,6 +81,9 @@
                             <dt class="col-sm-3">Asal Sekolah</dt>
                             <dd class="col-sm-9">{{ $siswa->asal_sekolah ?: 'Tidak ada data' }}</dd>
 
+                            <dt class="col-sm-3">Kelas</dt>
+                            <dd class="col-sm-9">{{ $siswa->kelas ?: 'Tidak ada data' }}</dd>
+
                             <dt class="col-sm-3">Tingkat</dt>
                             <dd class="col-sm-9">{{ $siswa->pendaftaran ? $siswa->pendaftaran->tingkat->nama_tingkat : '-' }}</dd>
 

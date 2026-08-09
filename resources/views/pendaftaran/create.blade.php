@@ -174,8 +174,18 @@
                                     <label class="form-label">Asal Sekolah</label>
                                     <input type="text" name="asal_sekolah"
                                         class="form-control @error('asal_sekolah') is-invalid @enderror"
-                                        value="{{ old('asal_sekolah') }}" required>
+                                        value="{{ old('asal_sekolah') }}" placeholder="Contoh: SD Negeri 1" required>
                                     @error('asal_sekolah')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Kelas</label>
+                                    <input type="text" name="kelas"
+                                        class="form-control @error('kelas') is-invalid @enderror"
+                                        value="{{ old('kelas') }}" placeholder="Contoh: 5 SD / 8 SMP / 11 SMA" required>
+                                    @error('kelas')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>

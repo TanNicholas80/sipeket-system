@@ -98,6 +98,11 @@ class User extends Authenticatable
         return $value ?: $this->profile?->asal_sekolah;
     }
 
+    public function getKelasAttribute($value)
+    {
+        return $value ?: $this->profile?->kelas;
+    }
+
     public function getNamaOrangtuaAttribute($value)
     {
         return $value ?: $this->profile?->nama_orangtua;

@@ -177,6 +177,7 @@ class DashboardController extends Controller
                 'tingkat_id' => $pendaftaran->tingkat_id,
                 'status' => 'aktif',
                 'asal_sekolah' => $pendaftaran->asal_sekolah,
+                'kelas' => $pendaftaran->kelas,
                 'nama_orangtua' => $pendaftaran->nama_orangtua,
                 'pekerjaan_orangtua' => $pendaftaran->pekerjaan_orangtua,
                 'kontak_orangtua' => $pendaftaran->kontak_orangtua,

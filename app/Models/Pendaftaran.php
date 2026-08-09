@@ -20,6 +20,7 @@ class Pendaftaran extends Model
         'jenis_kelamin',
         'nama_panggilan',
         'asal_sekolah',
+        'kelas',
         'kontak_aktif',
         'akta_kelahiran',
         'akta_kelahiran_url',

@@ -65,6 +65,7 @@ class UserSeeder extends Seeder
             'tingkat_id' => 1,
             'status' => 'aktif',
             'asal_sekolah' => 'SD Negeri 1',
+            'kelas' => '5 SD',
             'nama_orangtua' => 'Bapak Siswa',
             'pekerjaan_orangtua' => 'Pegawai Negeri',
             'kontak_orangtua' => '081234567892',

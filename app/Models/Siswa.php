@@ -24,6 +24,7 @@ class Siswa extends Model
         'tingkat_id',
         'status',
         'asal_sekolah',
+        'kelas',
         'nama_orangtua',
         'pekerjaan_orangtua',
         'kontak_orangtua',

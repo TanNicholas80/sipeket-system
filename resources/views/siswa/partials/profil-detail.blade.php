@@ -50,6 +50,9 @@
         <dt class="col-sm-4">Asal Sekolah</dt>
         <dd class="col-sm-8">{{ $user->asal_sekolah ?: '-' }}</dd>
 
+        <dt class="col-sm-4">Kelas</dt>
+        <dd class="col-sm-8">{{ $user->kelas ?: '-' }}</dd>
+
         <dt class="col-sm-4">Nama Orang Tua</dt>
         <dd class="col-sm-8">{{ $user->nama_orangtua ?: '-' }}</dd>
 

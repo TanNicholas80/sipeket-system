@@ -121,6 +121,15 @@
                                 @enderror
                             </div>
                             <div class="form-group">
+                                <label for="kelas">Kelas</label>
+                                <input type="text" class="form-control @error('kelas') is-invalid @enderror" id="kelas" name="kelas" value="{{ old('kelas', $siswa->kelas) }}" placeholder="Contoh: 5 SD / 8 SMP / 11 SMA" required>
+                                @error('kelas')
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                                @enderror
+                            </div>
+                            <div class="form-group">
                                 <label for="nama_orangtua">Nama Orang Tua</label>
                                 <input type="text" class="form-control @error('nama_orangtua') is-invalid @enderror" id="nama_orangtua" name="nama_orangtua" value="{{ old('nama_orangtua', $siswa->nama_orangtua) }}" placeholder="Masukkan nama orang tua" required>
                                 @error('nama_orangtua')
