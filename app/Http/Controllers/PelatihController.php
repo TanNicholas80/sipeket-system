@@ -386,6 +386,7 @@ class PelatihController extends Controller
             'materi_latihan_id',
             'user_id',
             'canSelectMateri',
+            'tahunPeriodes',
             'materiLatihans',
             'selectedTahunPeriode',
             'selectedMateriLatihan',
