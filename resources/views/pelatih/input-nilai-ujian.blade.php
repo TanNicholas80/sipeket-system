@@ -50,6 +50,14 @@
                 </div>
                 @endif
                 <form method="GET" action="{{ route('pelatih.input-nilai-ujian') }}" id="formFilterUjian">
+                    @if($isApplied)
+                        <input type="hidden" name="tingkat_id" value="{{ $tingkat_id }}">
+                        <input type="hidden" name="tahun_periode_id" value="{{ $tahun_periode_id }}">
+                        <input type="hidden" name="materi_latihan_id" value="{{ $materi_latihan_id }}">
+                        @if($user_id)
+                        <input type="hidden" name="user_id" value="{{ $user_id }}">
+                        @endif
+                    @endif
                     <div class="row align-items-end">
                         <div class="col-md-3 mb-3">
                             <label for="tingkat_id">Tingkat</label>
